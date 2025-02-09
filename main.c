@@ -57,6 +57,8 @@ void checkPlayerBounds(Player *bot, int screenWidth, int screenHeight);
 void checkBoxBounds(Box *box, int screenWidth, int screenHeight);
 void ballin(Point *ball, int screenWidth, int screenHeight, float time);
 void initBoxes(Box *box, int iterator);
+void shuffleColors(Color *array, size_t n);
+void initTargets(Box *target, int iterator, Color *arr);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -64,22 +66,25 @@ int main() {
     const int screenWidth = 800;
     const int screenHeight = 600;
     const int boxNumber = 10;
+    const size_t targetNumber = 4;
     int points = 0, previousPoints = 0, frameCounter = 0;
-    bool newRound = false, gameStarted = false, firstSpawn = false;
+    bool gameStarted = false, firstSpawn = false;
 
     srand(time(NULL));
 
-    Box targets[4];
-    for (int t = 0; t < 4; t++){
+    Box targets[targetNumber];
+    Color usedTargetsColors[targetNumber];
+    usedTargetsColors[0] = YELLOW;
+    usedTargetsColors[1] = RED;
+    usedTargetsColors[2] = GREEN;
+    usedTargetsColors[3] = BLUE;
+    for (int t = 0; t < targetNumber; t++){
         targets[t].rectangle.x = 700;    
         targets[t].rectangle.y = 50 + 150*t;    
         targets[t].rectangle.width = 100;    
-        targets[t].rectangle.height = 100;    
+        targets[t].rectangle.height = 100;
+        targets[t].color = usedTargetsColors[t];        
     }
-    targets[0].color = YELLOW;
-    targets[1].color = RED;
-    targets[2].color = GREEN;
-    targets[3].color = BLUE;
     
     Point ball;
     ball.position.x = 20.0f;
@@ -119,7 +124,7 @@ int main() {
 
         switch (currentScreen){
             case HOME:
-                if (!gameStarted && IsKeyPressed(KEY_ENTER)) {
+                if (!gameStarted && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
@@ -159,7 +164,7 @@ int main() {
                     box[i].pathReady3 = true;
                 }
                 else if (box[i].pathReady3 && box[i].rectangle.x <= -30 && box[i].rectangle.y > 100){
-                    box[i].rectangle.y -= 1;
+                    box[i].rectangle.y -= 2;
                     box[i].pathReady2 = false;   
                 }
             }
@@ -184,6 +189,13 @@ int main() {
                 for (int i = 0; i < boxNumber; i++) {
                     initBoxes(&box[i], i);
                 }
+                shuffleColors(usedTargetsColors, targetNumber);
+                for (size_t i = 0; i < targetNumber; i++) {
+                    initTargets(&targets[i], i, usedTargetsColors);
+                }
+                // for (int i = 0; i < targetNumber; i++) {
+                //     targets[i].color = getRandomColor();
+                // }
             }
         }
 
@@ -207,7 +219,7 @@ int main() {
                 bot.isCarrying = false;
             }
 
-            for (int j = 0; j < 4; j++){
+            for (int j = 0; j < targetNumber; j++){
                 if (CheckCollisionRecs(box[i].rectangle, targets[j].rectangle) && colorMatch(box[i].color, targets[j].color) && !box[i].wasCollected) {
                     box[i].isCollected = true;
                     box[i].isPicked = false;
@@ -234,17 +246,19 @@ int main() {
                     break;
                 case GAMEPLAY:
                     BeginMode2D(camera);
-                    for (int i = 0; i < 4; i++) {
+                    // Rysowanie targetów
+                    for (int i = 0; i < targetNumber; i++) {
                         DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
                         DrawRectangleLinesEx(targets[i].rectangle, 5.0f, targets[i].color);
                     }
+                    // Rysowanie boxów
                     for (int i = 0; i < boxNumber; i++){
                         if (box[i].rectangle.x > -200) DrawRectangleRec(box[i].rectangle, box[i].color);
                     }
+                    // Rysowanie gracza
                     DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
                     EndMode2D();
                     char pointsText[30];
-                    // snprintf(pointsText, sizeof(pointsText), "Score: %d, Time: %.1lf", points, GetTime());
                     snprintf(pointsText, sizeof(pointsText), "Score: %d, Time: %.1lf", points, (float)frameCounter/60);
                     DrawText(pointsText, 20, 20, 32, BLACK);
                     DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
@@ -295,6 +309,10 @@ void initBoxes(Box *box, int iterator) {
     box->pathReady = box->pathReady2 = box->pathReady3 = box->isPicked = box->isCollected = box->wasCollected = false;
 }
 
+void initTargets(Box *target, int iterator, Color *arr) {
+    target->color = arr[iterator];      
+}
+
 Color getRandomColor() {
     RandColorEnum randomColor = rand() % 4; 
 
@@ -309,4 +327,15 @@ Color getRandomColor() {
 
 bool colorMatch(Color c1, Color c2) {
     return (c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a);
+}
+
+void shuffleColors(Color *array, size_t n) {
+    if (n > 1) {
+        for (size_t i = 0; i < n - 1; i++) {
+          size_t j = i + rand() / (RAND_MAX / (n - i) + 1);
+          Color t = array[j];
+          array[j] = array[i];
+          array[i] = t;
+        }
+    }
 }
