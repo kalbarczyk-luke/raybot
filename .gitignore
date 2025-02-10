@@ -3,3 +3,4 @@ resources/
 *.code-workspace
 Makefile.Android
 main.exe
+img

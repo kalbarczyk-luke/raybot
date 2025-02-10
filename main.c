@@ -1,6 +1,6 @@
 /*******************************************************************************************
 *
-*   raylib [core] example - Basic 3d example
+*   RAYBOT GAME by kalba - based on raylib [core] example 
 *
 *   Welcome to raylib!
 *
@@ -32,7 +32,11 @@ typedef enum {
     YELLOW_COLOR
 } RandColorEnum;
 
-typedef enum GameScreen { HOME=0, GAMEPLAY, ENDING } GameScreen;
+typedef enum GameScreen { 
+    HOME=0, 
+    GAMEPLAY, 
+    ENDING 
+} GameScreen;
 
 typedef struct Point{
     Vector2 position; 
@@ -59,6 +63,7 @@ void ballin(Point *ball, int screenWidth, int screenHeight, float time);
 void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
+void drawBackgroundElements();
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -68,6 +73,7 @@ int main() {
     const int boxNumber = 10;
     const size_t targetNumber = 4;
     int points = 0, previousPoints = 0, frameCounter = 0;
+    float frameTimer = 0.0f;
     bool gameStarted = false, firstSpawn = false;
 
     srand(time(NULL));
@@ -86,15 +92,17 @@ int main() {
         targets[t].color = usedTargetsColors[t];        
     }
     
-    Point ball;
-    ball.position.x = 20.0f;
-    ball.position.y = 20.0f;
-    ball.velocity.x = 120.0f;
-    ball.velocity.y = 120.0f;
-    ball.radius = 12;
+    Point ball[5];
+    for (int i = 0; i < 5; i++) {
+        ball[i].radius = 12;
+        ball[i].position.x = (float)(rand() % 800 - ball[i].radius) + 1.0f;
+        ball[i].position.y = (float)(rand() % 600 - ball[i].radius) + 1.0f;
+        ball[i].velocity.x = 120.0f * pow(-1,i);
+        ball[i].velocity.y = 120.0f * pow(-1,i+1);  
+    }
 
     Player bot;
-    bot.size = 30;
+    bot.size = 50;
     bot.rec.x = screenWidth/2.0f;
     bot.rec.y = screenHeight/2.0f;
     bot.rec.height = bot.size;
@@ -104,9 +112,6 @@ int main() {
     bot.isCarrying = false;
 
     Box box[10];
-    // for (int i = 0; i < boxNumber; i++){
-    //     initBoxes(&box[i], i);
-    // }
     
     Camera2D camera = { 0 };
     camera.target = (Vector2){ bot.rec.x + 20.0f, bot.rec.y + 20.0f };
@@ -116,12 +121,18 @@ int main() {
    
     InitWindow(screenWidth, screenHeight, "RAYBOT");
     GameScreen currentScreen = HOME;
-    SetTargetFPS(60);                 
+    SetTargetFPS(60);
+    // Texture2D sprite = LoadTexture("img/raybot_detail_simplified.png");  
+    Texture2D sprite = LoadTexture("img/raybotYES.png");  
+    Rectangle frameRec = { 0.0f, 0.0f, (float)sprite.width/2, (float)sprite.height/5 };
+    int currentFrame = 0;
+    int currentRow = 0; 
 
     // ===== MAIN LOOP ======
     while (!WindowShouldClose()) {    
         float dt = GetFrameTime();
-
+        frameTimer += dt;
+        // === obsluga ekranów ===
         switch (currentScreen){
             case HOME:
                 if (!gameStarted && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) {
@@ -136,18 +147,45 @@ int main() {
             default: break;
         }
 
-        ballin(&ball, screenWidth, screenHeight, dt);
+        // === pilka latajaca DO === 
+        for (int j = 0; j < 5; j++) {
+            ballin(&ball[j], screenWidth, screenHeight, dt);
+        }
 
-        if (IsKeyDown(KEY_D)) bot.rec.x += bot.vel.x * dt;
-        else if (IsKeyDown(KEY_A)) bot.rec.x -= bot.vel.x * dt;
-        else if (IsKeyDown(KEY_W)) bot.rec.y -= bot.vel.y * dt;
-        else if (IsKeyDown(KEY_S)) bot.rec.y += bot.vel.y * dt;        
+        // === ruch gracza ===
+        if (IsKeyDown(KEY_D)) {
+            bot.rec.x += bot.vel.x * dt;
+            currentRow = 3;
+        }
+        else if (IsKeyDown(KEY_A)) {
+            bot.rec.x -= bot.vel.x * dt;
+            currentRow = 4;
+        } 
+        else if (IsKeyDown(KEY_W)) {
+            bot.rec.y -= bot.vel.y * dt;
+            currentRow = 1;
+        } 
+        else if (IsKeyDown(KEY_S)) {
+            bot.rec.y += bot.vel.y * dt;
+            currentRow = 2;        
+        }
+        else {
+            currentRow = 0;
+        }
+
+        if (frameTimer >= 0.2f) {
+            frameTimer = 0.0f;  
+            currentFrame = (currentFrame + 1) % 2;  
+        }
+
         checkPlayerBounds(&bot, screenWidth, screenHeight);
-    
+
+        // TODO: na koniec zablokowac mozliwosc zoomowania
         camera.zoom += ((float)GetMouseWheelMove()*0.05f);
         if (camera.zoom > 3.0f) camera.zoom = 3.0f;
         else if (camera.zoom < 0.1f) camera.zoom = 0.1f;
         
+        // === loop-movement boxów ===
         for (int i = 0; i < boxNumber; i++){
             if (!box[i].isPicked && !box[i].isCollected){
                 if (!box[i].pathReady2 && box[i].rectangle.x < 200 && box[i].rectangle.y <= 100) {
@@ -175,6 +213,7 @@ int main() {
             camera.rotation = 0.0f;
         }
 
+        // === nowe rundy z nowymi targetami ===
         if (gameStarted) {  
             if (points == 0 && !firstSpawn) { 
                 for (int i = 0; i < boxNumber; i++) {
@@ -193,12 +232,10 @@ int main() {
                 for (size_t i = 0; i < targetNumber; i++) {
                     initTargets(&targets[i], i, usedTargetsColors);
                 }
-                // for (int i = 0; i < targetNumber; i++) {
-                //     targets[i].color = getRandomColor();
-                // }
             }
         }
 
+        // === kolizja bot-box, przenoszenie boxów ===
         for (int i = 0; i < boxNumber; i++) {
             checkBoxBounds(&box[i], screenWidth, screenHeight);
 
@@ -208,10 +245,9 @@ int main() {
             }
 
             if (box[i].isPicked) {
-                box[i].rectangle.x = bot.rec.x + 29;
-                box[i].rectangle.y = bot.rec.y;
+                box[i].rectangle.x = bot.rec.x + 49;
+                box[i].rectangle.y = bot.rec.y + 15;
                 DrawCircle(bot.rec.x + 0.5f * bot.rec.width, bot.rec.y, 60.0f, Fade(box[i].color, 0.2f));
-                // DrawText("PICKED!", 20, 20, 20, box[i].color);
             }
 
             if (!IsKeyDown(KEY_SPACE) && box[i].isPicked) {
@@ -233,43 +269,46 @@ int main() {
         BeginDrawing();
 
             ClearBackground((Color){145, 145, 145, 255});
-            //
-            //
-            //          TODO: zrobic zeby targety zmienialy pozycje w kolejnych rundach
-            //
-            //
+
             switch (currentScreen){
                 case HOME:
                     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
                     DrawText("RAYBOT", screenWidth/2 - 160, screenHeight/2 - 100, 80, DARKGREEN);
-                    DrawText("PRESS ENTER TO PLAY", screenWidth/2 - 240, screenHeight/2 + 70, 40, DARKGREEN);
+                    DrawText("PRESS SPACE or ENTER to PLAY", 50, screenHeight/2 + 70, 40, DARKGREEN);
+                    for (int j = 0; j < 5; j++){
+                        DrawCircle(ball[j].position.x, ball[j].position.y, ball[j].radius, Fade(DARKPURPLE, 0.7f));
+                    }                    
                     break;
                 case GAMEPLAY:
                     BeginMode2D(camera);
-                    // Rysowanie targetów
+                    drawBackgroundElements();
+                    // === Rysowanie targetów ===
                     for (int i = 0; i < targetNumber; i++) {
                         DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
                         DrawRectangleLinesEx(targets[i].rectangle, 5.0f, targets[i].color);
                     }
-                    // Rysowanie boxów
+                    // === Rysowanie boxów ===
                     for (int i = 0; i < boxNumber; i++){
                         if (box[i].rectangle.x > -200) DrawRectangleRec(box[i].rectangle, box[i].color);
                     }
-                    // Rysowanie gracza
-                    DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
+                    // === Rysowanie gracza ===
+                    // frameRec.x = (float)(currentFrame * sprite.width/2);
+                    frameRec.x = (float)(currentFrame * frameRec.width);
+                    frameRec.y = (float)(currentRow * frameRec.height);
+                    // DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
+                    DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
                     EndMode2D();
-                    char pointsText[30];
-                    snprintf(pointsText, sizeof(pointsText), "Score: %d, Time: %.1lf", points, (float)frameCounter/60);
-                    DrawText(pointsText, 20, 20, 32, BLACK);
-                    DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
-                    // DrawFPS(screenWidth - 30, 5);
+                    // === Wyswietlanie wyniku i czasu gry ===
+                    DrawText(TextFormat("Score: %i, Time: %02.01f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
+                    // DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
+                    DrawFPS(screenWidth - 30, 5);
                     break;
                 default: break;
             }
 
         EndDrawing();   
     }
-
+    UnloadTexture(sprite);
     CloseWindow();                  
 
     return 0;
@@ -338,4 +377,12 @@ void shuffleColors(Color *array, size_t n) {
           array[i] = t;
         }
     }
+}
+
+void drawBackgroundElements() {
+    for (int i = 20; i < 1000; i += 60){
+        DrawLine(i,0,i,1000, Fade(BLACK, 0.5f));
+        DrawLine(0,i,1000,i, Fade(BLACK, 0.5f));
+    }
+    DrawRectangle(30, 30, 350, 50, Fade(DARKGRAY, 0.7f));
 }
