@@ -34,7 +34,8 @@ typedef enum {
 
 typedef enum GameScreen { 
     HOME=0, 
-    GAMEPLAY, 
+    GAMEPLAY,
+    FREEPLAY, 
     ENDING 
 } GameScreen;
 
@@ -63,7 +64,7 @@ void ballin(Point *ball, int screenWidth, int screenHeight, float time);
 void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
-void drawBackgroundElements();
+void drawBackgroundElements(GameScreen gamemode);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -71,10 +72,16 @@ int main() {
     const int screenWidth = 800;
     const int screenHeight = 600;
     const int boxNumber = 10;
+    const int maxPoints = 10;
     const size_t targetNumber = 4;
     int points = 0, previousPoints = 0, frameCounter = 0;
-    float frameTimer = 0.0f;
+    float frameTimer = 0.0f, attemptTime = -1.0f;
     bool gameStarted = false, firstSpawn = false;
+    bool mouseOnFreeMode = false, mouseOnTimeMode = false;
+
+    Rectangle freeModeButton = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 };
+    Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
+    Color buttonColor[2] = {DARKGREEN, DARKGREEN};
 
     srand(time(NULL));
 
@@ -95,8 +102,8 @@ int main() {
     Point ball[5];
     for (int i = 0; i < 5; i++) {
         ball[i].radius = 12;
-        ball[i].position.x = (float)(rand() % 800 - ball[i].radius) + 1.0f;
-        ball[i].position.y = (float)(rand() % 600 - ball[i].radius) + 1.0f;
+        ball[i].position.x = (float)(rand() % 700) + 20.0f;
+        ball[i].position.y = (float)(rand() % 500) + 20.0f;
         ball[i].velocity.x = 120.0f * pow(-1,i);
         ball[i].velocity.y = 120.0f * pow(-1,i+1);  
     }
@@ -140,8 +147,36 @@ int main() {
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
                 }
+                if (CheckCollisionPointRec(GetMousePosition(), freeModeButton)){
+                    mouseOnFreeMode = true;
+                    buttonColor[0] = (Color){0, 173, 66, 255};
+                } 
+                else {
+                    mouseOnFreeMode = false;
+                    buttonColor[0] = DARKGREEN;
+                }
+                if (CheckCollisionPointRec(GetMousePosition(), timeModeButton)){
+                    mouseOnTimeMode = true;
+                    buttonColor[1] = (Color){0, 173, 66, 255};
+                } 
+                else {
+                    mouseOnTimeMode = false;
+                    buttonColor[1] = DARKGREEN;
+                } 
+                if (!gameStarted && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    gameStarted = true;
+                    firstSpawn = false;
+                    currentScreen = GAMEPLAY;
+                } else if (!gameStarted && mouseOnFreeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    gameStarted = true;
+                    firstSpawn = false;
+                    currentScreen = FREEPLAY;
+                }
                 break;
             case GAMEPLAY:
+                frameCounter++;
+                break;
+            case FREEPLAY:
                 frameCounter++;
                 break;
             default: break;
@@ -222,16 +257,29 @@ int main() {
                 firstSpawn = true; 
             }
 
-            if (points != 0 && points % 10 == 0 && points != previousPoints) {
-                previousPoints = points;
-                
-                for (int i = 0; i < boxNumber; i++) {
-                    initBoxes(&box[i], i);
+            if (currentScreen == FREEPLAY){
+                if (points != 0 && points % 10 == 0 && points != previousPoints) {
+                    previousPoints = points;
+                    for (int i = 0; i < boxNumber; i++) {
+                        initBoxes(&box[i], i);
+                    }
+                    shuffleColors(usedTargetsColors, targetNumber);
+                    for (size_t i = 0; i < targetNumber; i++) {
+                        initTargets(&targets[i], i, usedTargetsColors);
+                    }
                 }
-                shuffleColors(usedTargetsColors, targetNumber);
-                for (size_t i = 0; i < targetNumber; i++) {
-                    initTargets(&targets[i], i, usedTargetsColors);
-                }
+            }
+            else if (currentScreen == GAMEPLAY){
+                if (points != 0 && points % 10 == 0 && points != previousPoints && points < maxPoints) {
+                    previousPoints = points;
+                    for (int i = 0; i < boxNumber; i++) {
+                        initBoxes(&box[i], i);
+                    }
+                    shuffleColors(usedTargetsColors, targetNumber);
+                    for (size_t i = 0; i < targetNumber; i++) {
+                        initTargets(&targets[i], i, usedTargetsColors);
+                    }
+                }                
             }
         }
 
@@ -274,14 +322,18 @@ int main() {
                 case HOME:
                     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
                     DrawText("RAYBOT", screenWidth/2 - 160, screenHeight/2 - 100, 80, DARKGREEN);
-                    DrawText("PRESS SPACE or ENTER to PLAY", 50, screenHeight/2 + 70, 40, DARKGREEN);
+                    DrawRectangleRec(freeModeButton, buttonColor[0]);
+                    DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
+                    DrawRectangleRec(timeModeButton, buttonColor[1]);
+                    DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
+                    // DrawText("PRESS SPACE or ENTER to PLAY", 50, screenHeight/2 + 70, 40, DARKGREEN);
                     for (int j = 0; j < 5; j++){
                         DrawCircle(ball[j].position.x, ball[j].position.y, ball[j].radius, Fade(DARKPURPLE, 0.7f));
                     }                    
                     break;
                 case GAMEPLAY:
                     BeginMode2D(camera);
-                    drawBackgroundElements();
+                    drawBackgroundElements(currentScreen);
                     // === Rysowanie targetów ===
                     for (int i = 0; i < targetNumber; i++) {
                         DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
@@ -292,14 +344,46 @@ int main() {
                         if (box[i].rectangle.x > -200) DrawRectangleRec(box[i].rectangle, box[i].color);
                     }
                     // === Rysowanie gracza ===
-                    // frameRec.x = (float)(currentFrame * sprite.width/2);
                     frameRec.x = (float)(currentFrame * frameRec.width);
                     frameRec.y = (float)(currentRow * frameRec.height);
                     // DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
                     DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
                     EndMode2D();
                     // === Wyswietlanie wyniku i czasu gry ===
-                    DrawText(TextFormat("Score: %i, Time: %02.01f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
+                    if (points < maxPoints){
+                        DrawText(TextFormat("Score: %i, Time: %02.01f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
+                    } else if (attemptTime == -1.0f){
+                        attemptTime = (float)frameCounter/60;
+                    }
+                    if (attemptTime != -1.0f){
+                        DrawText(TextFormat("Score: %i, Time: %02.01f", points, attemptTime), 20, 20, 32, WHITE);
+                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 465, 70, MAGENTA);
+                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 5.0f, MAROON);
+                        DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
+                    }                    
+                    // DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
+                    DrawFPS(screenWidth - 30, 5);
+                    break;
+                case FREEPLAY:
+                    BeginMode2D(camera);
+                    drawBackgroundElements(currentScreen);
+                    // === Rysowanie targetów ===
+                    for (int i = 0; i < targetNumber; i++) {
+                        DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
+                        DrawRectangleLinesEx(targets[i].rectangle, 5.0f, targets[i].color);
+                    }
+                    // === Rysowanie boxów ===
+                    for (int i = 0; i < boxNumber; i++){
+                        if (box[i].rectangle.x > -200) DrawRectangleRec(box[i].rectangle, box[i].color);
+                    }
+                    // === Rysowanie gracza ===
+                    frameRec.x = (float)(currentFrame * frameRec.width);
+                    frameRec.y = (float)(currentRow * frameRec.height);
+                    // DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
+                    DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
+                    EndMode2D();
+                    // === Wyswietlanie wyniku i czasu gry ===
+                    DrawText(TextFormat("Score: %i", points), 20, 20, 32, WHITE);
                     // DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
                     DrawFPS(screenWidth - 30, 5);
                     break;
@@ -379,10 +463,14 @@ void shuffleColors(Color *array, size_t n) {
     }
 }
 
-void drawBackgroundElements() {
+void drawBackgroundElements(GameScreen gamemode) {
     for (int i = 20; i < 1000; i += 60){
         DrawLine(i,0,i,1000, Fade(BLACK, 0.5f));
         DrawLine(0,i,1000,i, Fade(BLACK, 0.5f));
     }
-    DrawRectangle(30, 30, 350, 50, Fade(DARKGRAY, 0.7f));
+    if (gamemode == FREEPLAY){
+        DrawRectangle(30, 30, 220, 50, Fade(DARKGRAY, 0.7f));
+    } else if (gamemode == GAMEPLAY){
+        DrawRectangle(30, 30, 350, 50, Fade(DARKGRAY, 0.7f));
+    }
 }
