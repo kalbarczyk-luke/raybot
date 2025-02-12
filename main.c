@@ -1,6 +1,6 @@
 /*******************************************************************************************
 *
-*   RAYBOT GAME by kalba - based on raylib [core] example 
+*   RAYBOT GAME by kalba - based on raylib [core] examples 
 *
 *   Welcome to raylib!
 *
@@ -64,8 +64,10 @@ void ballin(Point *ball, int screenWidth, int screenHeight, float time);
 void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
+void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
+void drawHelpPopUp();
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -78,8 +80,8 @@ int main() {
     const size_t targetNumber = 4;
     int points = 0, previousPoints = 0, frameCounter = 0;
     float frameTimer = 0.0f, attemptTime = -1.0f;
-    bool gameStarted = false, firstSpawn = false;
-    bool mouseOnFreeMode = false, mouseOnTimeMode = false;
+    bool gameStarted = false, firstSpawn = false, helpPopUp = false;
+    bool mouseOnFreeMode = false, mouseOnTimeMode = false, mouseOnHelp = false, mouseOnResults = false;
     bool returnHomeRequested = false;
 
     char name[maxCharCount + 1];
@@ -89,7 +91,9 @@ int main() {
     Rectangle textBox = { screenWidth/2.0f - 200, 260, 400, 60 };
     Rectangle freeModeButton = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 };
     Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
-    Color buttonColor[2] = {DARKGREEN, DARKGREEN};
+    Rectangle helpButton = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
+    Rectangle resultsButton = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
+    Color buttonColor[4] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
 
     srand(time(NULL));
 
@@ -105,15 +109,6 @@ int main() {
         targets[t].rectangle.width = 100;    
         targets[t].rectangle.height = 100;
         targets[t].color = usedTargetsColors[t];        
-    }
-    
-    Point ball[5];
-    for (int i = 0; i < 5; i++) {
-        ball[i].radius = 12;
-        ball[i].position.x = (float)(rand() % 700) + 20.0f;
-        ball[i].position.y = (float)(rand() % 500) + 20.0f;
-        ball[i].velocity.x = 120.0f * pow(-1,i);
-        ball[i].velocity.y = 120.0f * pow(-1,i+1);  
     }
 
     Player bot;
@@ -137,7 +132,7 @@ int main() {
     InitWindow(screenWidth, screenHeight, "RAYBOT");
     GameScreen currentScreen = HOME;
     SetTargetFPS(60);
-    // Texture2D sprite = LoadTexture("img/raybot_detail_simplified.png");  
+
     Texture2D sprite = LoadTexture("img/raybotYES.png");  
     Rectangle frameRec = { 0.0f, 0.0f, (float)sprite.width/2, (float)sprite.height/5 };
     int currentFrame = 0;
@@ -148,14 +143,10 @@ int main() {
     while (!WindowShouldClose()) {    
         float dt = GetFrameTime();
         frameTimer += dt;
+
         // === obsluga ekranów ===
         switch (currentScreen){
             case HOME:
-                if (!gameStarted && IsKeyPressed(KEY_ENTER)) {
-                    gameStarted = true;
-                    firstSpawn = false;
-                    currentScreen = GAMEPLAY;
-                }
                 if (CheckCollisionPointRec(GetMousePosition(), freeModeButton)){
                     mouseOnFreeMode = true;
                     buttonColor[0] = (Color){0, 173, 66, 255};
@@ -164,6 +155,7 @@ int main() {
                     mouseOnFreeMode = false;
                     buttonColor[0] = DARKGREEN;
                 }
+
                 if (CheckCollisionPointRec(GetMousePosition(), timeModeButton)){
                     mouseOnTimeMode = true;
                     buttonColor[1] = (Color){0, 173, 66, 255};
@@ -172,42 +164,59 @@ int main() {
                     mouseOnTimeMode = false;
                     buttonColor[1] = DARKGREEN;
                 }
-                if (!gameStarted && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+
+                if (CheckCollisionPointRec(GetMousePosition(), helpButton)){
+                    mouseOnHelp = true;
+                    buttonColor[2] = (Color){0, 173, 66, 255};
+                } 
+                else {
+                    mouseOnHelp = false;
+                    buttonColor[2] = DARKGREEN;
+                }
+
+                if (CheckCollisionPointRec(GetMousePosition(), resultsButton)){
+                    mouseOnResults = true;
+                    buttonColor[3] = (Color){0, 173, 66, 255};
+                } 
+                else {
+                    mouseOnResults= false;
+                    buttonColor[3] = DARKGREEN;
+                }
+
+                if (!gameStarted && !helpPopUp && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
-                } else if (!gameStarted && mouseOnFreeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                } else if (!gameStarted && !helpPopUp && mouseOnFreeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = FREEPLAY;
+                } else if (!gameStarted && mouseOnHelp && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                    helpPopUp = true;
                 }
-                if (1) {
-                    // Set the window's cursor to the I-Beam
-                    SetMouseCursor(MOUSE_CURSOR_IBEAM);
 
-                    // Get char pressed (unicode character) on the queue
-                    int key = GetCharPressed();
+                if (helpPopUp && CheckCollisionPointRec(GetMousePosition(), (Rectangle){700, 50, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+                    helpPopUp = false;
+                }
 
-                    // Check if more characters have been pressed on the same frame
-                    while (key > 0)
-                    {
-                        // NOTE: Only allow keys in range [32..125]
-                        if ((key >= 32) && (key <= 125) && (letterCount < maxCharCount)) {
-                            name[letterCount] = (char)key;
-                            name[letterCount+1] = '\0'; // Add null terminator at the end of the string.
-                            letterCount++;
-                        }
+                int key = GetCharPressed();
 
-                        key = GetCharPressed();  // Check next character in the queue
+                while (key > 0) {
+                    // NOTE: Only allow keys in range [32..125]
+                    if ((key >= 32) && (key <= 125) && (letterCount < maxCharCount)) {
+                        name[letterCount] = (char)key;
+                        name[letterCount+1] = '\0'; // Add null terminator at the end of the string.
+                        letterCount++;
                     }
 
-                    if (IsKeyPressed(KEY_BACKSPACE)) {
-                        letterCount--;
-                        if (letterCount < 0) letterCount = 0;
-                        name[letterCount] = '\0';
-                    }
+                    key = GetCharPressed();  // Check next character in the queue
                 }
-                else SetMouseCursor(MOUSE_CURSOR_DEFAULT);
+
+                if (IsKeyPressed(KEY_BACKSPACE)) {
+                    letterCount--;
+                    if (letterCount < 0) letterCount = 0;
+                    name[letterCount] = '\0';
+                }
                 break;
             case GAMEPLAY:
                 if (IsKeyPressed(KEY_Q)) returnHomeRequested = true;
@@ -244,11 +253,6 @@ int main() {
                 }
                 break;
             default: break;
-        }
-
-        // === pilka latajaca DO === 
-        for (int j = 0; j < 5; j++) {
-            ballin(&ball[j], screenWidth, screenHeight, dt);
         }
 
         // === ruch gracza ===
@@ -386,20 +390,10 @@ int main() {
 
             switch (currentScreen){
                 case HOME:
-                    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
-                    DrawText("RAYBOT", screenWidth/2 - 160, screenHeight/2 - 150, 80, DARKGREEN);
-                    DrawRectangleRec(freeModeButton, buttonColor[0]);
-                    DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
-                    DrawRectangleRec(timeModeButton, buttonColor[1]);
-                    DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
-                    DrawRectangleRec(textBox, LIGHTGRAY);
-                    DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
+                    DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
                     if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 5, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
-                    else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, MAROON);
-                    // DrawText("PRESS SPACE or ENTER to PLAY", 50, screenHeight/2 + 70, 40, DARKGREEN);
-                    for (int j = 0; j < 5; j++){
-                        DrawCircle(ball[j].position.x, ball[j].position.y, ball[j].radius, Fade(DARKPURPLE, 0.7f));
-                    }                    
+                    else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
+                    if (helpPopUp) drawHelpPopUp();
                     break;
                 case GAMEPLAY:
                     BeginMode2D(camera);
@@ -428,9 +422,11 @@ int main() {
                     }
                     if (attemptTime != -1.0f){
                         DrawText(TextFormat("Score: %i, Time: %02.01f", points, attemptTime), 20, 20, 32, WHITE);
-                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 465, 70, MAGENTA);
-                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 5.0f, MAROON);
+                        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(DARKGRAY, 0.8f));
+                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 465, 70, (Color){0, 173, 66, 255});
+                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 3.0f, DARKGREEN);
                         DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
+                        DrawText("Press Q to return to main menu.", screenWidth/2 - 220, screenHeight/2 + 25, 24, WHITE);
                     }
 
                     if (returnHomeRequested) {
@@ -545,6 +541,21 @@ void shuffleColors(Color *array, size_t n) {
     }
 }
 
+void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]){
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
+    DrawText("RAYBOT", 165, screenHeight/2 - 200, 120, DARKGREEN);
+    DrawRectangleRec(freeModeButton, buttonColor[0]);
+    DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
+    DrawRectangleRec(timeModeButton, buttonColor[1]);
+    DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
+    DrawRectangleRec(helpButton, buttonColor[2]);
+    DrawText("Help", screenWidth/2 - 170, screenHeight/2 + 170, 40, WHITE);
+    DrawRectangleRec(resultsButton, buttonColor[3]);
+    DrawText("TBA", screenWidth/2 + 35, screenHeight/2 + 170, 40, WHITE);
+    DrawRectangleRec(textBox, LIGHTGRAY);
+    DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
+}
+
 void drawBackgroundElements(GameScreen gamemode) {
     for (int i = 20; i < 1000; i += 60){
         DrawLine(i,0,i,1000, Fade(BLACK, 0.5f));
@@ -563,5 +574,22 @@ void drawReturnScreen(int screenWidth) {
     DrawRectangle(0, 0, screenWidth, 200, Fade(DARKGRAY, 0.2f));
     DrawRectangle(0, 400, screenWidth, 200, Fade(DARKGRAY, 0.2f));
     DrawRectangle(0, 200, screenWidth, 200, BLACK);
-    DrawText("Are you sure you want to exit program? [Y/N]", 40, 280, 30, WHITE);
+    DrawText("Are you sure you want to exit game? [Y/N]", 40, 280, 30, WHITE);
+}
+
+void drawHelpPopUp(){
+    DrawRectangle(50, 50, 700, 500, Fade(DARKGRAY, 0.95f));
+    DrawRectangle(700, 50, 50, 50, Fade(MAROON, 0.9f));
+    DrawLineEx((Vector2) {710, 60}, (Vector2) {740, 90}, 3.0f, Fade(WHITE, 0.9f));
+    DrawLineEx((Vector2) {740, 60}, (Vector2) {710, 90}, 3.0f, Fade(WHITE, 0.9f));
+    DrawText("RAYBOT - HELP", 240, 60, 40, Fade(WHITE, 0.9f));
+    DrawText("Raybot! Collect and sort the boxes.", 60, 140, 32, Fade(WHITE, 0.9f)); 
+    DrawText("Controls: ", 60, 200, 32, Fade(WHITE, 0.9f)); 
+    DrawText("WASD - raybot movement", 60, 240, 32, Fade(WHITE, 0.9f)); 
+    DrawText("SPACE - pick up a box", 60, 280, 32, Fade(WHITE, 0.9f));     
+    DrawText("Q - exit", 60, 320, 32, Fade(WHITE, 0.9f));  
+    DrawText("Gamemodes: ", 60, 380, 32, Fade(WHITE, 0.9f));  
+    DrawText("Free play: relax with no time limit!", 60, 420, 32, Fade(WHITE, 0.9f));  
+    DrawText("Time play: collect 10 boxes as", 60, 460, 32, Fade(WHITE, 0.9f));  
+    DrawText("fast as possible!", 227, 490, 32, Fade(WHITE, 0.9f));  
 }
