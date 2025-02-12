@@ -65,6 +65,7 @@ void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
 void drawBackgroundElements(GameScreen gamemode);
+void drawReturnScreen(int screenWidth);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -73,12 +74,19 @@ int main() {
     const int screenHeight = 600;
     const int boxNumber = 10;
     const int maxPoints = 10;
+    const int maxCharCount = 9;
     const size_t targetNumber = 4;
     int points = 0, previousPoints = 0, frameCounter = 0;
     float frameTimer = 0.0f, attemptTime = -1.0f;
     bool gameStarted = false, firstSpawn = false;
     bool mouseOnFreeMode = false, mouseOnTimeMode = false;
+    bool returnHomeRequested = false;
 
+    char name[maxCharCount + 1];
+    int letterCount = 0;
+    name[0] = 0;
+
+    Rectangle textBox = { screenWidth/2.0f - 200, 260, 400, 60 };
     Rectangle freeModeButton = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 };
     Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
     Color buttonColor[2] = {DARKGREEN, DARKGREEN};
@@ -134,6 +142,7 @@ int main() {
     Rectangle frameRec = { 0.0f, 0.0f, (float)sprite.width/2, (float)sprite.height/5 };
     int currentFrame = 0;
     int currentRow = 0; 
+    int boxSpeed = 1;
 
     // ===== MAIN LOOP ======
     while (!WindowShouldClose()) {    
@@ -142,7 +151,7 @@ int main() {
         // === obsluga ekranów ===
         switch (currentScreen){
             case HOME:
-                if (!gameStarted && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) {
+                if (!gameStarted && IsKeyPressed(KEY_ENTER)) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
@@ -162,7 +171,7 @@ int main() {
                 else {
                     mouseOnTimeMode = false;
                     buttonColor[1] = DARKGREEN;
-                } 
+                }
                 if (!gameStarted && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     gameStarted = true;
                     firstSpawn = false;
@@ -172,12 +181,67 @@ int main() {
                     firstSpawn = false;
                     currentScreen = FREEPLAY;
                 }
+                if (1) {
+                    // Set the window's cursor to the I-Beam
+                    SetMouseCursor(MOUSE_CURSOR_IBEAM);
+
+                    // Get char pressed (unicode character) on the queue
+                    int key = GetCharPressed();
+
+                    // Check if more characters have been pressed on the same frame
+                    while (key > 0)
+                    {
+                        // NOTE: Only allow keys in range [32..125]
+                        if ((key >= 32) && (key <= 125) && (letterCount < maxCharCount)) {
+                            name[letterCount] = (char)key;
+                            name[letterCount+1] = '\0'; // Add null terminator at the end of the string.
+                            letterCount++;
+                        }
+
+                        key = GetCharPressed();  // Check next character in the queue
+                    }
+
+                    if (IsKeyPressed(KEY_BACKSPACE)) {
+                        letterCount--;
+                        if (letterCount < 0) letterCount = 0;
+                        name[letterCount] = '\0';
+                    }
+                }
+                else SetMouseCursor(MOUSE_CURSOR_DEFAULT);
                 break;
             case GAMEPLAY:
-                frameCounter++;
+                if (IsKeyPressed(KEY_Q)) returnHomeRequested = true;
+
+                if (returnHomeRequested) {
+                    if (IsKeyPressed(KEY_Y)){
+                        gameStarted = false;
+                        points = 0;
+                        frameCounter = 0;
+                        currentScreen = HOME;
+                        returnHomeRequested = false;   
+                    }
+                    else if (IsKeyPressed(KEY_N)) returnHomeRequested = false;
+                }
+                else {
+                    frameCounter++;
+                }
                 break;
             case FREEPLAY:
-                frameCounter++;
+                if (IsKeyPressed(KEY_Q)) returnHomeRequested = true;
+
+                if (returnHomeRequested) {
+                    if (IsKeyPressed(KEY_Y)){
+                        gameStarted = false;
+                        points = 0;
+                        frameCounter = 0;
+                        currentScreen = HOME;
+                        returnHomeRequested = false;   
+                    }
+                    else if (IsKeyPressed(KEY_N)) returnHomeRequested = false;
+                }
+                else {
+                    frameCounter++;
+                }
                 break;
             default: break;
         }
@@ -188,24 +252,26 @@ int main() {
         }
 
         // === ruch gracza ===
-        if (IsKeyDown(KEY_D)) {
-            bot.rec.x += bot.vel.x * dt;
-            currentRow = 3;
-        }
-        else if (IsKeyDown(KEY_A)) {
-            bot.rec.x -= bot.vel.x * dt;
-            currentRow = 4;
-        } 
-        else if (IsKeyDown(KEY_W)) {
-            bot.rec.y -= bot.vel.y * dt;
-            currentRow = 1;
-        } 
-        else if (IsKeyDown(KEY_S)) {
-            bot.rec.y += bot.vel.y * dt;
-            currentRow = 2;        
-        }
-        else {
-            currentRow = 0;
+        if (!returnHomeRequested){
+            if (IsKeyDown(KEY_D)) {
+                bot.rec.x += bot.vel.x * dt;
+                currentRow = 3;
+            }
+            else if (IsKeyDown(KEY_A)) {
+                bot.rec.x -= bot.vel.x * dt;
+                currentRow = 4;
+            } 
+            else if (IsKeyDown(KEY_W)) {
+                bot.rec.y -= bot.vel.y * dt;
+                currentRow = 1;
+            } 
+            else if (IsKeyDown(KEY_S)) {
+                bot.rec.y += bot.vel.y * dt;
+                currentRow = 2;        
+            }
+            else {
+                currentRow = 0;
+            }
         }
 
         if (frameTimer >= 0.2f) {
@@ -224,20 +290,20 @@ int main() {
         for (int i = 0; i < boxNumber; i++){
             if (!box[i].isPicked && !box[i].isCollected){
                 if (!box[i].pathReady2 && box[i].rectangle.x < 200 && box[i].rectangle.y <= 100) {
-                    box[i].rectangle.x += 1;
+                    box[i].rectangle.x += boxSpeed;
                     box[i].pathReady = true;
                 }
                 else if (box[i].pathReady && box[i].rectangle.y < 500) {
-                    box[i].rectangle.y += 1;
+                    box[i].rectangle.y += boxSpeed;
                     box[i].pathReady2 = true;
                 }
                 else if (box[i].pathReady2 && box[i].rectangle.x > -30) {
-                    box[i].rectangle.x -= 1;
+                    box[i].rectangle.x -= boxSpeed;
                     box[i].pathReady = false;
                     box[i].pathReady3 = true;
                 }
                 else if (box[i].pathReady3 && box[i].rectangle.x <= -30 && box[i].rectangle.y > 100){
-                    box[i].rectangle.y -= 2;
+                    box[i].rectangle.y -= 2 * boxSpeed;
                     box[i].pathReady2 = false;   
                 }
             }
@@ -321,11 +387,15 @@ int main() {
             switch (currentScreen){
                 case HOME:
                     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
-                    DrawText("RAYBOT", screenWidth/2 - 160, screenHeight/2 - 100, 80, DARKGREEN);
+                    DrawText("RAYBOT", screenWidth/2 - 160, screenHeight/2 - 150, 80, DARKGREEN);
                     DrawRectangleRec(freeModeButton, buttonColor[0]);
                     DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
                     DrawRectangleRec(timeModeButton, buttonColor[1]);
                     DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
+                    DrawRectangleRec(textBox, LIGHTGRAY);
+                    DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
+                    if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 5, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
+                    else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, MAROON);
                     // DrawText("PRESS SPACE or ENTER to PLAY", 50, screenHeight/2 + 70, 40, DARKGREEN);
                     for (int j = 0; j < 5; j++){
                         DrawCircle(ball[j].position.x, ball[j].position.y, ball[j].radius, Fade(DARKPURPLE, 0.7f));
@@ -334,6 +404,7 @@ int main() {
                 case GAMEPLAY:
                     BeginMode2D(camera);
                     drawBackgroundElements(currentScreen);
+                    DrawText(name, 160, 560, 32, WHITE);
                     // === Rysowanie targetów ===
                     for (int i = 0; i < targetNumber; i++) {
                         DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
@@ -360,13 +431,20 @@ int main() {
                         DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 465, 70, MAGENTA);
                         DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 5.0f, MAROON);
                         DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
-                    }                    
-                    // DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
+                    }
+
+                    if (returnHomeRequested) {
+                        boxSpeed = 0;
+                        drawReturnScreen(screenWidth);
+                    }
+                    else boxSpeed = 1;
+
                     DrawFPS(screenWidth - 30, 5);
                     break;
                 case FREEPLAY:
                     BeginMode2D(camera);
                     drawBackgroundElements(currentScreen);
+                    DrawText(name, 160, 560, 32, WHITE);
                     // === Rysowanie targetów ===
                     for (int i = 0; i < targetNumber; i++) {
                         DrawRectangleRec(targets[i].rectangle, Fade(GRAY, 0.9f));
@@ -384,7 +462,11 @@ int main() {
                     EndMode2D();
                     // === Wyswietlanie wyniku i czasu gry ===
                     DrawText(TextFormat("Score: %i", points), 20, 20, 32, WHITE);
-                    // DrawCircle(ball.position.x, ball.position.y, ball.radius, ORANGE);
+                    if (returnHomeRequested) {
+                        boxSpeed = 0;
+                        drawReturnScreen(screenWidth);
+                    }
+                    else boxSpeed = 1;
                     DrawFPS(screenWidth - 30, 5);
                     break;
                 default: break;
@@ -468,9 +550,18 @@ void drawBackgroundElements(GameScreen gamemode) {
         DrawLine(i,0,i,1000, Fade(BLACK, 0.5f));
         DrawLine(0,i,1000,i, Fade(BLACK, 0.5f));
     }
+    DrawRectangle(30, 550, 310, 50, Fade(DARKGRAY, 0.7f));
+    DrawText("Player: ", 40, 560, 32,WHITE);
     if (gamemode == FREEPLAY){
         DrawRectangle(30, 30, 220, 50, Fade(DARKGRAY, 0.7f));
     } else if (gamemode == GAMEPLAY){
         DrawRectangle(30, 30, 350, 50, Fade(DARKGRAY, 0.7f));
     }
+}
+
+void drawReturnScreen(int screenWidth) {
+    DrawRectangle(0, 0, screenWidth, 200, Fade(DARKGRAY, 0.2f));
+    DrawRectangle(0, 400, screenWidth, 200, Fade(DARKGRAY, 0.2f));
+    DrawRectangle(0, 200, screenWidth, 200, BLACK);
+    DrawText("Are you sure you want to exit program? [Y/N]", 40, 280, 30, WHITE);
 }
