@@ -130,6 +130,7 @@ int main() {
     camera.zoom = 1.0f;
    
     InitWindow(screenWidth, screenHeight, "RAYBOT");
+    InitAudioDevice();
     GameScreen currentScreen = HOME;
     SetTargetFPS(60);
 
@@ -138,6 +139,9 @@ int main() {
     int currentFrame = 0;
     int currentRow = 0; 
     int boxSpeed = 1;
+
+    // Sound Effect by u_8e8ungop1x from Pixabay
+    Sound popSound = LoadSound("img/pop.mp3");
 
     // ===== MAIN LOOP ======
     while (!WindowShouldClose()) {    
@@ -194,28 +198,30 @@ int main() {
                 } else if (!gameStarted && mouseOnHelp && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     helpPopUp = true;
                 }
+                
+                if (!helpPopUp){
+                    int key = GetCharPressed();
 
-                if (helpPopUp && CheckCollisionPointRec(GetMousePosition(), (Rectangle){700, 50, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
-                    helpPopUp = false;
-                }
-
-                int key = GetCharPressed();
-
-                while (key > 0) {
-                    // NOTE: Only allow keys in range [32..125]
-                    if ((key >= 32) && (key <= 125) && (letterCount < maxCharCount)) {
-                        name[letterCount] = (char)key;
-                        name[letterCount+1] = '\0'; // Add null terminator at the end of the string.
-                        letterCount++;
+                    while (key > 0) {
+                        // NOTE: Only allow keys in range [32..125]
+                        if ((key >= 32) && (key <= 125) && (letterCount < maxCharCount)) {
+                            name[letterCount] = (char)key;
+                            name[letterCount+1] = '\0'; // Add null terminator at the end of the string.
+                            letterCount++;
+                        }
+    
+                        key = GetCharPressed();  // Check next character in the queue
                     }
-
-                    key = GetCharPressed();  // Check next character in the queue
+    
+                    if (IsKeyPressed(KEY_BACKSPACE)) {
+                        letterCount--;
+                        if (letterCount < 0) letterCount = 0;
+                        name[letterCount] = '\0';
+                    }    
                 }
 
-                if (IsKeyPressed(KEY_BACKSPACE)) {
-                    letterCount--;
-                    if (letterCount < 0) letterCount = 0;
-                    name[letterCount] = '\0';
+                if (helpPopUp && ((CheckCollisionPointRec(GetMousePosition(), (Rectangle){700, 50, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
+                    helpPopUp = false;
                 }
                 break;
             case GAMEPLAY:
@@ -225,6 +231,7 @@ int main() {
                     if (IsKeyPressed(KEY_Y)){
                         gameStarted = false;
                         points = 0;
+                        name[0] = 0;
                         frameCounter = 0;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
@@ -242,6 +249,7 @@ int main() {
                     if (IsKeyPressed(KEY_Y)){
                         gameStarted = false;
                         points = 0;
+                        name[0] = 0;
                         frameCounter = 0;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
@@ -307,7 +315,7 @@ int main() {
                     box[i].pathReady3 = true;
                 }
                 else if (box[i].pathReady3 && box[i].rectangle.x <= -30 && box[i].rectangle.y > 100){
-                    box[i].rectangle.y -= 2 * boxSpeed;
+                    box[i].rectangle.y -= 5 * boxSpeed;
                     box[i].pathReady2 = false;   
                 }
             }
@@ -340,7 +348,7 @@ int main() {
                 }
             }
             else if (currentScreen == GAMEPLAY){
-                if (points != 0 && points % 10 == 0 && points != previousPoints && points < maxPoints) {
+                if ((points != 0 && points % 10 == 0 && points != previousPoints && points < maxPoints) || (attemptTime != -1.0f && IsKeyPressed(KEY_R))) {
                     previousPoints = points;
                     for (int i = 0; i < boxNumber; i++) {
                         initBoxes(&box[i], i);
@@ -375,6 +383,7 @@ int main() {
 
             for (int j = 0; j < targetNumber; j++){
                 if (CheckCollisionRecs(box[i].rectangle, targets[j].rectangle) && colorMatch(box[i].color, targets[j].color) && !box[i].wasCollected) {
+                    PlaySound(popSound);
                     box[i].isCollected = true;
                     box[i].isPicked = false;
                     bot.isCarrying = false;
@@ -411,8 +420,8 @@ int main() {
                     // === Rysowanie gracza ===
                     frameRec.x = (float)(currentFrame * frameRec.width);
                     frameRec.y = (float)(currentRow * frameRec.height);
-                    // DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
-                    DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
+                    DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
+                    // DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
                     EndMode2D();
                     // === Wyswietlanie wyniku i czasu gry ===
                     if (points < maxPoints){
@@ -427,6 +436,12 @@ int main() {
                         DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 3.0f, DARKGREEN);
                         DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
                         DrawText("Press Q to return to main menu.", screenWidth/2 - 220, screenHeight/2 + 25, 24, WHITE);
+                        DrawText("Press R to play again.", screenWidth/2 - 220, screenHeight/2 + 55, 24, WHITE);
+                        if (IsKeyPressed(KEY_R)){
+                            points = 0;
+                            frameCounter = 0;
+                            attemptTime = -1.0f;
+                        }
                     }
 
                     if (returnHomeRequested) {
@@ -471,6 +486,8 @@ int main() {
         EndDrawing();   
     }
     UnloadTexture(sprite);
+    UnloadSound(popSound);
+    CloseAudioDevice();
     CloseWindow();                  
 
     return 0;
