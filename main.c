@@ -24,6 +24,7 @@
 #include "math.h"
 #include "stdlib.h"
 #include "time.h"
+#include "string.h"
 
 typedef enum {
     RED_COLOR,
@@ -36,7 +37,7 @@ typedef enum GameScreen {
     HOME=0, 
     GAMEPLAY,
     FREEPLAY, 
-    ENDING 
+    RESULTS
 } GameScreen;
 
 typedef struct Point{
@@ -65,9 +66,11 @@ void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
 void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]);
+void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
 void drawHelpPopUp();
+void writeResult(const char name[], float time);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -93,7 +96,7 @@ int main() {
     Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
     Rectangle helpButton = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
     Rectangle resultsButton = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
-    Color buttonColor[4] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
+    Color buttonColor[5] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
 
     srand(time(NULL));
 
@@ -140,6 +143,9 @@ int main() {
     int currentRow = 0; 
     int boxSpeed = 1;
 
+    Font resultFont = { 0 };
+    resultFont = LoadFont("resources/fonts/romulus.png");
+
     // Sound Effect by u_8e8ungop1x from Pixabay
     Sound popSound = LoadSound("img/pop.mp3");
 
@@ -183,7 +189,7 @@ int main() {
                     buttonColor[3] = (Color){0, 173, 66, 255};
                 } 
                 else {
-                    mouseOnResults= false;
+                    mouseOnResults = false;
                     buttonColor[3] = DARKGREEN;
                 }
 
@@ -197,6 +203,8 @@ int main() {
                     currentScreen = FREEPLAY;
                 } else if (!gameStarted && mouseOnHelp && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     helpPopUp = true;
+                } else if (!gameStarted && mouseOnResults && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+                    currentScreen = RESULTS;
                 }
                 
                 if (!helpPopUp){
@@ -231,8 +239,8 @@ int main() {
                     if (IsKeyPressed(KEY_Y)){
                         gameStarted = false;
                         points = 0;
-                        name[0] = 0;
                         frameCounter = 0;
+                        attemptTime = -1.0f;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
                     }
@@ -249,7 +257,6 @@ int main() {
                     if (IsKeyPressed(KEY_Y)){
                         gameStarted = false;
                         points = 0;
-                        name[0] = 0;
                         frameCounter = 0;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
@@ -258,6 +265,13 @@ int main() {
                 }
                 else {
                     frameCounter++;
+                }
+                break;
+            case RESULTS:
+                if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){10, 10, 50, 50})) buttonColor[4] = (Color){0, 173, 66, 255};
+                else buttonColor[4] = DARKGREEN;
+                if (((CheckCollisionPointRec(GetMousePosition(), (Rectangle){10, 10, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
+                    currentScreen = HOME;
                 }
                 break;
             default: break;
@@ -400,7 +414,7 @@ int main() {
             switch (currentScreen){
                 case HOME:
                     DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
-                    if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 5, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
+                    if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 30, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
                     else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
                     if (helpPopUp) drawHelpPopUp();
                     break;
@@ -428,6 +442,7 @@ int main() {
                         DrawText(TextFormat("Score: %i, Time: %02.01f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
                     } else if (attemptTime == -1.0f){
                         attemptTime = (float)frameCounter/60;
+                        writeResult(name, attemptTime);
                     }
                     if (attemptTime != -1.0f){
                         DrawText(TextFormat("Score: %i, Time: %02.01f", points, attemptTime), 20, 20, 32, WHITE);
@@ -437,7 +452,7 @@ int main() {
                         DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
                         DrawText("Press Q to return to main menu.", screenWidth/2 - 220, screenHeight/2 + 25, 24, WHITE);
                         DrawText("Press R to play again.", screenWidth/2 - 220, screenHeight/2 + 55, 24, WHITE);
-                        if (IsKeyPressed(KEY_R)){
+                        if (!returnHomeRequested && IsKeyPressed(KEY_R)){
                             points = 0;
                             frameCounter = 0;
                             attemptTime = -1.0f;
@@ -480,6 +495,9 @@ int main() {
                     else boxSpeed = 1;
                     DrawFPS(screenWidth - 30, 5);
                     break;
+                case RESULTS:
+                    DrawResults(screenWidth, screenHeight, buttonColor, resultFont);
+                    break;
                 default: break;
             }
 
@@ -487,6 +505,7 @@ int main() {
     }
     UnloadTexture(sprite);
     UnloadSound(popSound);
+    UnloadFont(resultFont);
     CloseAudioDevice();
     CloseWindow();                  
 
@@ -568,9 +587,50 @@ void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Recta
     DrawRectangleRec(helpButton, buttonColor[2]);
     DrawText("Help", screenWidth/2 - 170, screenHeight/2 + 170, 40, WHITE);
     DrawRectangleRec(resultsButton, buttonColor[3]);
-    DrawText("TBA", screenWidth/2 + 35, screenHeight/2 + 170, 40, WHITE);
+    DrawText("Results", screenWidth/2 + 55, screenHeight/2 + 170, 40, WHITE);
     DrawRectangleRec(textBox, LIGHTGRAY);
     DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
+}
+
+void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font) {
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
+    DrawRectangle(10, 10, 50, 50, Fade(buttonColor[4], 0.9f));
+    DrawRectangle(25, 37, 20, 13, Fade(WHITE, 0.9f));
+    DrawTriangle((Vector2){50,35}, (Vector2){35,20}, (Vector2){20,35}, Fade(WHITE, 0.9f));
+    DrawRectangle(20, 100, screenWidth - 2*20, screenHeight - 100 - 20, WHITE);
+    DrawLineEx((Vector2){screenWidth/2, 110}, (Vector2){screenWidth/2, screenHeight - 40}, 3.0f, GRAY);
+    DrawText("HOME", 12, 70, 18, DARKGREEN);
+    DrawText("Time Play Results", 210, 25, 46, DARKGREEN);
+
+    // file results
+    int lines = 0, posX, i = 0;
+    Vector2 offset =  {0, 0};
+    char ch, result[24];
+    FILE *file = fopen("img/results.dat", "r");
+    // if (file != NULL) {
+    //     while ((ch = fgetc(file)) != EOF) { 
+    //         if (ch == '\n') { 
+    //             lines++;
+    //         }
+    //     }
+    // }
+    if (file != NULL) {
+        while (fgets(result, sizeof(result), file) != NULL) { 
+            if (i < 11) {
+                posX = 50;
+                DrawTextEx(font, result, (Vector2){posX, 120+offset.x}, 32, 1, BLACK);
+                offset.x += 40;
+            }
+            else {
+                posX = 40 + screenWidth / 2;
+                DrawTextEx(font, result, (Vector2){posX, 120+offset.y}, 32, 1, BLACK);
+                offset.y += 40;
+            }
+            i++;
+        }
+    }
+
+    fclose(file);
 }
 
 void drawBackgroundElements(GameScreen gamemode) {
@@ -609,4 +669,16 @@ void drawHelpPopUp(){
     DrawText("Free play: relax with no time limit!", 60, 420, 32, Fade(WHITE, 0.9f));  
     DrawText("Time play: collect 10 boxes as", 60, 460, 32, Fade(WHITE, 0.9f));  
     DrawText("fast as possible!", 227, 490, 32, Fade(WHITE, 0.9f));  
+}
+
+void writeResult(const char name[], float time) {
+    FILE *fptr;
+    
+    // Otwieranie pliku w trybie dopisywania ("a")
+    fptr = fopen("img/results.dat", "a");
+    if (fptr != NULL) {
+        fprintf(fptr, "%s - %.1f\n", name, time);
+    }
+
+    fclose(fptr);
 }
