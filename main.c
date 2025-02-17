@@ -66,11 +66,12 @@ void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
 void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]);
-void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font);
+void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
 void drawHelpPopUp();
 void writeResult(const char name[], float time);
+int recordsCount();
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -81,7 +82,7 @@ int main() {
     const int maxPoints = 10;
     const int maxCharCount = 9;
     const size_t targetNumber = 4;
-    int points = 0, previousPoints = 0, frameCounter = 0;
+    int points = 0, previousPoints = 0, frameCounter = 0, scrollPos = 1;
     float frameTimer = 0.0f, attemptTime = -1.0f;
     bool gameStarted = false, firstSpawn = false, helpPopUp = false;
     bool mouseOnFreeMode = false, mouseOnTimeMode = false, mouseOnHelp = false, mouseOnResults = false;
@@ -96,6 +97,7 @@ int main() {
     Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
     Rectangle helpButton = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
     Rectangle resultsButton = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
+    Rectangle resultsBox = { 50, 110, 340, 460};
     Color buttonColor[5] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
 
     srand(time(NULL));
@@ -272,6 +274,11 @@ int main() {
                 else buttonColor[4] = DARKGREEN;
                 if (((CheckCollisionPointRec(GetMousePosition(), (Rectangle){10, 10, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
                     currentScreen = HOME;
+                }
+                if (CheckCollisionPointRec(GetMousePosition(), resultsBox)) {
+                    if (recordsCount() > 11) scrollPos -= (int)(GetMouseWheelMove()*10.0f);
+                    if (scrollPos < 1) scrollPos = 1;
+                    else if (scrollPos > 369) scrollPos = 369;
                 }
                 break;
             default: break;
@@ -496,7 +503,8 @@ int main() {
                     DrawFPS(screenWidth - 30, 5);
                     break;
                 case RESULTS:
-                    DrawResults(screenWidth, screenHeight, buttonColor, resultFont);
+                    DrawResults(screenWidth, screenHeight, buttonColor, resultFont, (scrollPos-1)/10);
+                    DrawRectangle(screenWidth/2-40, 140 + scrollPos, 30, 30, LIGHTGRAY);
                     break;
                 default: break;
             }
@@ -592,28 +600,54 @@ void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Recta
     DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
 }
 
-void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font) {
+void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset) {
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
     DrawRectangle(10, 10, 50, 50, Fade(buttonColor[4], 0.9f));
     DrawRectangle(25, 37, 20, 13, Fade(WHITE, 0.9f));
     DrawTriangle((Vector2){50,35}, (Vector2){35,20}, (Vector2){20,35}, Fade(WHITE, 0.9f));
+
     DrawRectangle(20, 100, screenWidth - 2*20, screenHeight - 100 - 20, WHITE);
     DrawLineEx((Vector2){screenWidth/2, 110}, (Vector2){screenWidth/2, screenHeight - 40}, 3.0f, GRAY);
+    DrawRectangle(screenWidth/2-40, 110, 30, 30, LIGHTGRAY);
+    DrawTriangle((Vector2){screenWidth/2 - 15,135}, (Vector2){screenWidth/2 - 25,115}, (Vector2){screenWidth/2 - 35,135}, Fade(WHITE, 0.9f));
+    DrawRectangle(screenWidth/2-40, 540, 30, 30, LIGHTGRAY);
+    DrawTriangle((Vector2){screenWidth/2 - 15,545}, (Vector2){screenWidth/2 - 35,545}, (Vector2){screenWidth/2 - 25,565}, Fade(WHITE, 0.9f));
+    DrawRectangle(screenWidth/2-40, 140, 30, 400, Fade(LIGHTGRAY, 0.5f));
     DrawText("HOME", 12, 70, 18, DARKGREEN);
     DrawText("Time Play Results", 210, 25, 46, DARKGREEN);
+    DrawTextEx(font, "TOP RESULTS", (Vector2) {440, 120}, 40, 5.0f, GOLD);
 
     // file results
     int lines = 0, posX, i = 0;
     Vector2 offset =  {0, 0};
     char ch, result[24];
     FILE *file = fopen("img/results.dat", "r");
-    // if (file != NULL) {
-    //     while ((ch = fgetc(file)) != EOF) { 
-    //         if (ch == '\n') { 
-    //             lines++;
-    //         }
-    //     }
-    // }
+
+    char results[100][24] = {0};
+    float scores[100] = {0.0f};
+    int totalResults = 0, resultID;
+    if (file != NULL) {
+        while (totalResults < 100 && fgets(results[totalResults], 24, file) != NULL) { 
+            // results[totalResults][strcspn(results[totalResults], "\n")] = 0;  // Usunięcie `\n`
+            char *token = strtok(results[totalResults], "-");
+            if (token != NULL) {
+                token = strtok(NULL, "-");  // Przejdź do wartości liczbowej
+                if (token != NULL) {
+                    scores[totalResults] = strtof(token, NULL);  // Konwersja na float
+                }
+            }
+            totalResults++;
+        }
+        
+        if (totalResults < 12) resultID = 0;
+        else resultID = textOffset;
+        
+        for (int i = resultID; i < 11+resultID; i++) {
+            DrawTextEx(font, results[i], (Vector2){50, 120 + offset.y}, 32, 1, BLACK);
+            offset.y += 40;
+        }
+    }
+    /*
     if (file != NULL) {
         while (fgets(result, sizeof(result), file) != NULL) { 
             if (i < 11) {
@@ -629,8 +663,25 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
             i++;
         }
     }
+    else return;
+    */
 
     fclose(file);
+}
+
+int recordsCount() {
+    int lines = 0;
+    char ch;
+    FILE *file = fopen("img/results.dat", "r");
+    if (file != NULL) {
+        while ((ch = fgetc(file)) != EOF) { 
+            if (ch == '\n') { 
+                lines++;
+            }
+        }
+    }
+    fclose(file);
+    return lines;
 }
 
 void drawBackgroundElements(GameScreen gamemode) {
