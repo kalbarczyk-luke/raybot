@@ -72,6 +72,7 @@ void drawReturnScreen(int screenWidth);
 void drawHelpPopUp();
 void writeResult(const char name[], float time);
 int recordsCount();
+int compareScores(void *scores, const void *a, const void *b);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 
@@ -229,7 +230,7 @@ int main() {
                         name[letterCount] = '\0';
                     }    
                 }
-
+                
                 if (helpPopUp && ((CheckCollisionPointRec(GetMousePosition(), (Rectangle){700, 50, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
                     helpPopUp = false;
                 }
@@ -315,9 +316,9 @@ int main() {
         checkPlayerBounds(&bot, screenWidth, screenHeight);
 
         // TODO: na koniec zablokowac mozliwosc zoomowania
-        camera.zoom += ((float)GetMouseWheelMove()*0.05f);
-        if (camera.zoom > 3.0f) camera.zoom = 3.0f;
-        else if (camera.zoom < 0.1f) camera.zoom = 0.1f;
+        // camera.zoom += ((float)GetMouseWheelMove()*0.05f);
+        // if (camera.zoom > 3.0f) camera.zoom = 3.0f;
+        // else if (camera.zoom < 0.1f) camera.zoom = 0.1f;
         
         // === loop-movement boxów ===
         for (int i = 0; i < boxNumber; i++){
@@ -446,17 +447,17 @@ int main() {
                     EndMode2D();
                     // === Wyswietlanie wyniku i czasu gry ===
                     if (points < maxPoints){
-                        DrawText(TextFormat("Score: %i, Time: %02.01f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
+                        DrawText(TextFormat("Score: %i, Time: %02.02f", points, (float)frameCounter/60), 20, 20, 32, WHITE);
                     } else if (attemptTime == -1.0f){
                         attemptTime = (float)frameCounter/60;
                         writeResult(name, attemptTime);
                     }
                     if (attemptTime != -1.0f){
-                        DrawText(TextFormat("Score: %i, Time: %02.01f", points, attemptTime), 20, 20, 32, WHITE);
+                        DrawText(TextFormat("Score: %i, Time: %02.02f", points, attemptTime), 20, 20, 32, WHITE);
                         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(DARKGRAY, 0.8f));
-                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 465, 70, (Color){0, 173, 66, 255});
-                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 465, 70}, 3.0f, DARKGREEN);
-                        DrawText(TextFormat("Your time: %02.01f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
+                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 475, 70, (Color){0, 173, 66, 255});
+                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 475, 70}, 3.0f, DARKGREEN);
+                        DrawText(TextFormat("Your time: %02.02f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
                         DrawText("Press Q to return to main menu.", screenWidth/2 - 220, screenHeight/2 + 25, 24, WHITE);
                         DrawText("Press R to play again.", screenWidth/2 - 220, screenHeight/2 + 55, 24, WHITE);
                         if (!returnHomeRequested && IsKeyPressed(KEY_R)){
@@ -504,6 +505,7 @@ int main() {
                     break;
                 case RESULTS:
                     DrawResults(screenWidth, screenHeight, buttonColor, resultFont, (scrollPos-1)/10);
+                    // TODO: adaptive scroll 
                     DrawRectangle(screenWidth/2-40, 140 + scrollPos, 30, 30, LIGHTGRAY);
                     break;
                 default: break;
@@ -615,58 +617,70 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
     DrawRectangle(screenWidth/2-40, 140, 30, 400, Fade(LIGHTGRAY, 0.5f));
     DrawText("HOME", 12, 70, 18, DARKGREEN);
     DrawText("Time Play Results", 210, 25, 46, DARKGREEN);
-    DrawTextEx(font, "TOP RESULTS", (Vector2) {440, 120}, 40, 5.0f, GOLD);
+    DrawTextEx(font, "TOP RESULTS", (Vector2) {440, 120}, 40, 5.0f, MAROON);
 
     // file results
-    int lines = 0, posX, i = 0;
     Vector2 offset =  {0, 0};
-    char ch, result[24];
     FILE *file = fopen("img/results.dat", "r");
+    if (!file) {
+        DrawTextEx(font, "No results found", (Vector2){50, 120}, 32, 1, RED);
+        return;
+    }
 
     char results[100][24] = {0};
     float scores[100] = {0.0f};
+    Color medals[5] = {GOLD, LIGHTGRAY, (Color){205, 127, 50, 255}, BLACK, BLACK};
+    int indices[100]; 
     int totalResults = 0, resultID;
-    if (file != NULL) {
-        while (totalResults < 100 && fgets(results[totalResults], 24, file) != NULL) { 
-            // results[totalResults][strcspn(results[totalResults], "\n")] = 0;  // Usunięcie `\n`
-            char *token = strtok(results[totalResults], "-");
-            if (token != NULL) {
-                token = strtok(NULL, "-");  // Przejdź do wartości liczbowej
-                if (token != NULL) {
-                    scores[totalResults] = strtof(token, NULL);  // Konwersja na float
-                }
-            }
-            totalResults++;
-        }
-        
-        if (totalResults < 12) resultID = 0;
-        else resultID = textOffset;
-        
-        for (int i = resultID; i < 11+resultID; i++) {
-            DrawTextEx(font, results[i], (Vector2){50, 120 + offset.y}, 32, 1, BLACK);
-            offset.y += 40;
-        }
+    
+    while (totalResults < 100 && fgets(results[totalResults], 24, file) != NULL) { 
+        // results[totalResults][strcspn(results[totalResults], "\n")] = 0;  // Usunięcie `\n`
+        indices[totalResults] = totalResults;
+        totalResults++;
     }
-    /*
-    if (file != NULL) {
-        while (fgets(result, sizeof(result), file) != NULL) { 
-            if (i < 11) {
-                posX = 50;
-                DrawTextEx(font, result, (Vector2){posX, 120+offset.x}, 32, 1, BLACK);
-                offset.x += 40;
-            }
-            else {
-                posX = 40 + screenWidth / 2;
-                DrawTextEx(font, result, (Vector2){posX, 120+offset.y}, 32, 1, BLACK);
-                offset.y += 40;
-            }
-            i++;
-        }
-    }
-    else return;
-    */
-
     fclose(file);
+    if (totalResults == 0) {
+        DrawTextEx(font, "No results yet!", (Vector2){50, 120}, 40, 1, MAROON);
+        DrawTextEx(font, "It's empty here...", (Vector2) {440, 180}, 24, 2.0f, BLACK);
+        return;
+    }
+    
+    if (totalResults < 12) resultID = 0;
+    else resultID = textOffset;
+    
+    for (int i = resultID; i < 11+resultID; i++) {
+        DrawTextEx(font, results[i], (Vector2){50, 120 + offset.y}, 32, 1, BLACK);
+        offset.y += 40;
+    }
+
+    for (int i = 0; i < totalResults; i++){
+        char *token = strtok(results[i], "-");
+        if (token) {
+            token = strtok(NULL, "-");  
+            if (token) {
+                scores[i] = strtof(token, NULL);
+            } else {
+                scores[i] = 99999.0f; 
+            }
+        } else {
+            scores[i] = 99999.0f; 
+        }
+    }
+
+    qsort_s(indices, totalResults, sizeof(int), compareScores, scores);
+    for (int i = 0; i < 5 && i < totalResults; i++) {
+        int sortedIndex = indices[i];
+        DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
+        DrawTextEx(font, TextFormat("%s- %.2f",results[sortedIndex], scores[sortedIndex]), (Vector2){490, 180 + 40 * i}, 32, 1, BLACK);
+    }
+}
+
+int compareScores(void *scores, const void *a, const void *b) {
+    int idxA = *(const int *)a;
+    int idxB = *(const int *)b;
+    float *scoreArray = (float *)scores;
+
+    return (scoreArray[idxA] > scoreArray[idxB]) - (scoreArray[idxA] < scoreArray[idxB]);
 }
 
 int recordsCount() {
@@ -728,7 +742,7 @@ void writeResult(const char name[], float time) {
     // Otwieranie pliku w trybie dopisywania ("a")
     fptr = fopen("img/results.dat", "a");
     if (fptr != NULL) {
-        fprintf(fptr, "%s - %.1f\n", name, time);
+        fprintf(fptr, "%s - %.2f\n", name, time);
     }
 
     fclose(fptr);
