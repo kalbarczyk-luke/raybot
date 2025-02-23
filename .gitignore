@@ -1,5 +1,6 @@
 .vscode/*
-resources/
+resources/LICENSE
+resources/*.dat
 *.code-workspace
 Makefile.Android
 main.exe

@@ -140,7 +140,7 @@ int main() {
     GameScreen currentScreen = HOME;
     SetTargetFPS(60);
 
-    Texture2D sprite = LoadTexture("img/raybotYES.png");  
+    Texture2D sprite = LoadTexture("resources/raybotYES.png");  
     Rectangle frameRec = { 0.0f, 0.0f, (float)sprite.width/2, (float)sprite.height/5 };
     int currentFrame = 0;
     int currentRow = 0; 
@@ -150,7 +150,7 @@ int main() {
     resultFont = LoadFont("resources/fonts/romulus.png");
 
     // Sound Effect by u_8e8ungop1x from Pixabay
-    Sound popSound = LoadSound("img/pop.mp3");
+    Sound popSound = LoadSound("resources/pop.mp3");
 
     // ===== MAIN LOOP ======
     while (!WindowShouldClose()) {    
@@ -453,10 +453,12 @@ int main() {
                         writeResult(name, attemptTime);
                     }
                     if (attemptTime != -1.0f){
+                        bot.rec.x = screenWidth/2.0f;
+                        bot.rec.y = screenHeight/2.0f;
                         DrawText(TextFormat("Score: %i, Time: %02.02f", points, attemptTime), 20, 20, 32, WHITE);
                         DrawRectangle(0, 0, screenWidth, screenHeight, Fade(DARKGRAY, 0.8f));
-                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 475, 70, (Color){0, 173, 66, 255});
-                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 475, 70}, 3.0f, DARKGREEN);
+                        DrawRectangle(screenWidth/2 - 260, screenHeight/2 - 50, 495, 70, (Color){0, 173, 66, 255});
+                        DrawRectangleLinesEx((Rectangle){screenWidth/2 - 260, screenHeight/2 - 50, 495, 70}, 3.0f, DARKGREEN);
                         DrawText(TextFormat("Your time: %02.02f s!", attemptTime), screenWidth/2 - 240, screenHeight/2 - 38, 50, WHITE);
                         DrawText("Press Q to return to main menu.", screenWidth/2 - 220, screenHeight/2 + 25, 24, WHITE);
                         DrawText("Press R to play again.", screenWidth/2 - 220, screenHeight/2 + 55, 24, WHITE);
@@ -621,7 +623,7 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
 
     // file results
     Vector2 offset =  {0, 0};
-    FILE *file = fopen("img/results.dat", "r");
+    FILE *file = fopen("resources/results.dat", "r");
     if (!file) {
         DrawTextEx(font, "No results found", (Vector2){50, 120}, 32, 1, RED);
         return;
@@ -686,7 +688,7 @@ int compareScores(void *scores, const void *a, const void *b) {
 int recordsCount() {
     int lines = 0;
     char ch;
-    FILE *file = fopen("img/results.dat", "r");
+    FILE *file = fopen("resources/results.dat", "r");
     if (file != NULL) {
         while ((ch = fgetc(file)) != EOF) { 
             if (ch == '\n') { 
@@ -703,7 +705,7 @@ void drawBackgroundElements(GameScreen gamemode) {
         DrawLine(i,0,i,1000, Fade(BLACK, 0.5f));
         DrawLine(0,i,1000,i, Fade(BLACK, 0.5f));
     }
-    DrawRectangle(30, 550, 310, 50, Fade(DARKGRAY, 0.7f));
+    DrawRectangle(30, 550, 330, 50, Fade(DARKGRAY, 0.7f));
     DrawText("Player: ", 40, 560, 32,WHITE);
     if (gamemode == FREEPLAY){
         DrawRectangle(30, 30, 220, 50, Fade(DARKGRAY, 0.7f));
@@ -740,7 +742,7 @@ void writeResult(const char name[], float time) {
     FILE *fptr;
     
     // Otwieranie pliku w trybie dopisywania ("a")
-    fptr = fopen("img/results.dat", "a");
+    fptr = fopen("resources/results.dat", "a");
     if (fptr != NULL) {
         fprintf(fptr, "%s - %.2f\n", name, time);
     }
