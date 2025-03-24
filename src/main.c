@@ -669,7 +669,9 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
         }
     }
 
-    qsort_s(indices, totalResults, sizeof(int), compareScores, scores);
+    // qsort(indices, totalResults, sizeof(int), compareScores, scores);
+    qsort_r(indices, totalResults, sizeof(int), (void *)scores, compareScores);
+
     for (int i = 0; i < 5 && i < totalResults; i++) {
         int sortedIndex = indices[i];
         DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
