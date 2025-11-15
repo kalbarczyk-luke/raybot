@@ -668,13 +668,19 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
             scores[i] = 99999.0f; 
         }
     }
+    #ifdef __linux__ 
+        //TODO: ogarnac sortowanie, dziala na windows, a na linux nie
+    #elif _WIN32
+        // windows code goes here
+        qsort_s(indices, totalResults, sizeof(int), compareScores, scores);
+        for (int i = 0; i < 5 && i < totalResults; i++) {
+            int sortedIndex = indices[i];
+            DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
+            DrawTextEx(font, TextFormat("%s- %.2f",results[sortedIndex], scores[sortedIndex]), (Vector2){490, 180 + 40 * i}, 32, 1, BLACK);
+        }
+    #else
 
-    qsort_s(indices, totalResults, sizeof(int), compareScores, scores);
-    for (int i = 0; i < 5 && i < totalResults; i++) {
-        int sortedIndex = indices[i];
-        DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
-        DrawTextEx(font, TextFormat("%s- %.2f",results[sortedIndex], scores[sortedIndex]), (Vector2){490, 180 + 40 * i}, 32, 1, BLACK);
-    }
+    #endif
 }
 
 int compareScores(void *scores, const void *a, const void *b) {
