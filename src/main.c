@@ -72,9 +72,11 @@ void drawReturnScreen(int screenWidth);
 void drawHelpPopUp();
 void writeResult(const char name[], float time);
 int recordsCount();
-int compareScores(void *scores, const void *a, const void *b);
+int compareScores_s(void *scores, const void *a, const void *b);
+int compareScores(const void *a, const void *b);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
+static float *global_scores;
 
 int main() {
     const int screenWidth = 800;
@@ -668,27 +670,38 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
             scores[i] = 99999.0f; 
         }
     }
+
     #ifdef __linux__ 
-        //TODO: ogarnac sortowanie, dziala na windows, a na linux nie
+        global_scores = scores;
+        qsort(indices, totalResults, sizeof(int), compareScores);
     #elif _WIN32
         // windows code goes here
-        qsort_s(indices, totalResults, sizeof(int), compareScores, scores);
-        for (int i = 0; i < 5 && i < totalResults; i++) {
-            int sortedIndex = indices[i];
-            DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
-            DrawTextEx(font, TextFormat("%s- %.2f",results[sortedIndex], scores[sortedIndex]), (Vector2){490, 180 + 40 * i}, 32, 1, BLACK);
-        }
+        qsort_s(indices, totalResults, sizeof(int), compareScores_s, scores);
     #else
 
     #endif
+    
+    for (int i = 0; i < 5 && i < totalResults; i++) {
+        int sortedIndex = indices[i];
+        DrawTextEx(font, TextFormat("#%i ",i+1), (Vector2) {440, 180+40*i}, 32, 1, medals[i]);  
+        DrawTextEx(font, TextFormat("%s- %.2f",results[sortedIndex], scores[sortedIndex]), (Vector2){490, 180 + 40 * i}, 32, 1, BLACK);
+    }
 }
 
-int compareScores(void *scores, const void *a, const void *b) {
+int compareScores_s(void *scores, const void *a, const void *b) {
     int idxA = *(const int *)a;
     int idxB = *(const int *)b;
     float *scoreArray = (float *)scores;
-
+    
     return (scoreArray[idxA] > scoreArray[idxB]) - (scoreArray[idxA] < scoreArray[idxB]);
+}
+
+int compareScores(const void *a, const void *b) {
+    int idxA = *(const int *)a;
+    int idxB = *(const int *)b;
+    // float *scoreArray = (float *)scores;
+
+    return (global_scores[idxA] > global_scores[idxB]) - (global_scores[idxA] < global_scores[idxB]);
 }
 
 int recordsCount() {

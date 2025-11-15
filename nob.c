@@ -38,7 +38,8 @@ int main(int argc, char **argv) {
     #elif _WIN32
         nob_cmd_append(&cmd, "./build/main.exe");
     #else
-
+        nob_log(NOB_ERROR, "OS not supported.");
+        return 1;
     #endif
 
     if (!nob_cmd_run_sync_and_reset(&cmd)) {
