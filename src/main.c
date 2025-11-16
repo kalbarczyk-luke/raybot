@@ -33,31 +33,36 @@ typedef enum {
     YELLOW_COLOR
 } RandColorEnum;
 
-typedef enum GameScreen { 
+typedef enum  { 
     HOME=0, 
     GAMEPLAY,
     FREEPLAY, 
     RESULTS
 } GameScreen;
 
-typedef struct Point{
+typedef struct {
     Vector2 position; 
     Vector2 velocity; 
     int radius; 
 } Point;
 
-typedef struct Box{
+typedef struct {
     Rectangle rectangle;
     Color color;
     bool pathReady, pathReady2, pathReady3, isPicked, isCollected, wasCollected;
 } Box;
 
-typedef struct Player{
+typedef struct {
     Rectangle rec; 
     Vector2 vel;
     bool isCarrying;
     int size;
 } Player;
+
+typedef struct {
+    Rectangle rec;
+    Color color;
+} Button;
 
 void checkPlayerBounds(Player *bot, int screenWidth, int screenHeight);
 void checkBoxBounds(Box *box, int screenWidth, int screenHeight);
@@ -69,7 +74,7 @@ void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Recta
 void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
-void drawHelpPopUp();
+void drawHelpPopUp(Button closeButton);
 void writeResult(const char name[], float time);
 int recordsCount();
 int compareScores_s(void *scores, const void *a, const void *b);
@@ -77,6 +82,10 @@ int compareScores(const void *a, const void *b);
 Color getRandomColor();
 bool colorMatch(Color c1, Color c2);
 static float *global_scores;
+const char *result_path = "resources/results.dat"; 
+
+#define BRONZE (Color){205, 127, 50, 255}
+#define MENU_BUTTON_HOVER (Color){0, 173, 66, 255}
 
 int main() {
     const int screenWidth = 800;
@@ -101,6 +110,11 @@ int main() {
     Rectangle helpButton = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
     Rectangle resultsButton = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
     Rectangle resultsBox = { 50, 110, 340, 460};
+    Button helpCloseButton = {
+        .rec = {700, 50, 50, 50},
+        .color = MAROON
+    };
+    // Rectangle helpCloseButton = {700, 50, 50, 50};
     Color buttonColor[5] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
 
     srand(time(NULL));
@@ -164,7 +178,7 @@ int main() {
             case HOME:
                 if (CheckCollisionPointRec(GetMousePosition(), freeModeButton)){
                     mouseOnFreeMode = true;
-                    buttonColor[0] = (Color){0, 173, 66, 255};
+                    buttonColor[0] = MENU_BUTTON_HOVER;
                 } 
                 else {
                     mouseOnFreeMode = false;
@@ -173,7 +187,7 @@ int main() {
 
                 if (CheckCollisionPointRec(GetMousePosition(), timeModeButton)){
                     mouseOnTimeMode = true;
-                    buttonColor[1] = (Color){0, 173, 66, 255};
+                    buttonColor[1] = MENU_BUTTON_HOVER;
                 } 
                 else {
                     mouseOnTimeMode = false;
@@ -182,7 +196,7 @@ int main() {
 
                 if (CheckCollisionPointRec(GetMousePosition(), helpButton)){
                     mouseOnHelp = true;
-                    buttonColor[2] = (Color){0, 173, 66, 255};
+                    buttonColor[2] = MENU_BUTTON_HOVER;
                 } 
                 else {
                     mouseOnHelp = false;
@@ -191,14 +205,14 @@ int main() {
 
                 if (CheckCollisionPointRec(GetMousePosition(), resultsButton)){
                     mouseOnResults = true;
-                    buttonColor[3] = (Color){0, 173, 66, 255};
+                    buttonColor[3] = MENU_BUTTON_HOVER;
                 } 
                 else {
                     mouseOnResults = false;
                     buttonColor[3] = DARKGREEN;
                 }
 
-                if (!gameStarted && !helpPopUp && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                if (!gameStarted && !helpPopUp && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && strcmp(name, "") != 0) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
@@ -233,8 +247,13 @@ int main() {
                     }    
                 }
                 
-                if (helpPopUp && ((CheckCollisionPointRec(GetMousePosition(), (Rectangle){700, 50, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
-                    helpPopUp = false;
+                if (helpPopUp && CheckCollisionPointRec(GetMousePosition(), helpCloseButton.rec)) { 
+                    helpCloseButton.color = (Color){ 210, 63, 85, 255 };
+                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsKeyPressed(KEY_Q)) {
+                        helpPopUp = false;
+                    }
+                } else {
+                    helpCloseButton.color = MAROON;
                 }
                 break;
             case GAMEPLAY:
@@ -246,6 +265,8 @@ int main() {
                         points = 0;
                         frameCounter = 0;
                         attemptTime = -1.0f;
+                        name[0] = '\0';
+                        letterCount = 0;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
                     }
@@ -263,6 +284,8 @@ int main() {
                         gameStarted = false;
                         points = 0;
                         frameCounter = 0;
+                        name[0] = '\0';
+                        letterCount = 0;
                         currentScreen = HOME;
                         returnHomeRequested = false;   
                     }
@@ -426,7 +449,7 @@ int main() {
                     DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
                     if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 30, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
                     else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
-                    if (helpPopUp) drawHelpPopUp();
+                    if (helpPopUp) drawHelpPopUp(helpCloseButton);
                     break;
                 case GAMEPLAY:
                     BeginMode2D(camera);
@@ -625,7 +648,7 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
 
     // file results
     Vector2 offset =  {0, 0};
-    FILE *file = fopen("resources/results.dat", "r");
+    FILE *file = fopen(result_path, "r");
     if (!file) {
         DrawTextEx(font, "No results found", (Vector2){50, 120}, 32, 1, RED);
         return;
@@ -633,7 +656,8 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
 
     char results[100][24] = {0};
     float scores[100] = {0.0f};
-    Color medals[5] = {GOLD, LIGHTGRAY, (Color){205, 127, 50, 255}, BLACK, BLACK};
+    
+    Color medals[5] = {GOLD, LIGHTGRAY, BRONZE, BLACK, BLACK};
     int indices[100]; 
     int totalResults = 0, resultID;
     
@@ -675,7 +699,6 @@ void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font fo
         global_scores = scores;
         qsort(indices, totalResults, sizeof(int), compareScores);
     #elif _WIN32
-        // windows code goes here
         qsort_s(indices, totalResults, sizeof(int), compareScores_s, scores);
     #else
 
@@ -707,7 +730,7 @@ int compareScores(const void *a, const void *b) {
 int recordsCount() {
     int lines = 0;
     char ch;
-    FILE *file = fopen("resources/results.dat", "r");
+    FILE *file = fopen(result_path, "r");
     if (file != NULL) {
         while ((ch = fgetc(file)) != EOF) { 
             if (ch == '\n') { 
@@ -740,9 +763,9 @@ void drawReturnScreen(int screenWidth) {
     DrawText("Are you sure you want to exit game? [Y/N]", 40, 280, 30, WHITE);
 }
 
-void drawHelpPopUp(){
+void drawHelpPopUp(Button closeButton){
     DrawRectangle(50, 50, 700, 500, Fade(DARKGRAY, 0.95f));
-    DrawRectangle(700, 50, 50, 50, Fade(MAROON, 0.9f));
+    DrawRectangleRec(closeButton.rec, Fade(closeButton.color, 0.9f));
     DrawLineEx((Vector2) {710, 60}, (Vector2) {740, 90}, 3.0f, Fade(WHITE, 0.9f));
     DrawLineEx((Vector2) {740, 60}, (Vector2) {710, 90}, 3.0f, Fade(WHITE, 0.9f));
     DrawText("RAYBOT - HELP", 240, 60, 40, Fade(WHITE, 0.9f));
@@ -761,7 +784,7 @@ void writeResult(const char name[], float time) {
     FILE *fptr;
     
     // Otwieranie pliku w trybie dopisywania ("a")
-    fptr = fopen("resources/results.dat", "a");
+    fptr = fopen(result_path, "a");
     if (fptr != NULL) {
         fprintf(fptr, "%s - %.2f\n", name, time);
     }
