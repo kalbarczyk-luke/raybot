@@ -62,6 +62,7 @@ typedef struct {
 typedef struct {
     Rectangle rec;
     Color color;
+    bool state;
 } Button;
 
 void checkPlayerBounds(Player *bot, int screenWidth, int screenHeight);
@@ -71,6 +72,7 @@ void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
 void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]);
+void DrawMenuUI(int screenWidth, int screenHeight, Button buttons[], Rectangle textBox);
 void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
@@ -105,15 +107,46 @@ int main() {
     name[0] = 0;
 
     Rectangle textBox = { screenWidth/2.0f - 200, 260, 400, 60 };
+
+    Button menuButtons[4] = {
+        {
+            // freeMode
+            .rec   = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 },
+            .color = DARKGREEN,
+            .state = false
+        },
+        {
+            // timeMode
+            .rec   = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 },
+            .color = DARKGREEN,
+            .state = false
+        },
+        {
+            // help
+            .rec   = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 },
+            .color = DARKGREEN,
+            .state = false
+        },
+        {
+            // results
+            .rec   = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 },
+            .color = DARKGREEN,
+            .state = false
+        }
+    };
+    
     Rectangle freeModeButton = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 };
     Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
-    Rectangle helpButton = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
-    Rectangle resultsButton = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
-    Rectangle resultsBox = { 50, 110, 340, 460};
+    Rectangle helpButton     = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
+    Rectangle resultsButton  = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
+    
     Button helpCloseButton = {
         .rec = {700, 50, 50, 50},
-        .color = MAROON
+        .color = MAROON,
+        .state = false
     };
+
+    Rectangle resultsBox = { 50, 110, 340, 460};
     // Rectangle helpCloseButton = {700, 50, 50, 50};
     Color buttonColor[5] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
 
@@ -133,15 +166,16 @@ int main() {
         targets[t].color = usedTargetsColors[t];        
     }
 
-    Player bot;
-    bot.size = 50;
-    bot.rec.x = screenWidth/2.0f;
-    bot.rec.y = screenHeight/2.0f;
-    bot.rec.height = bot.size;
-    bot.rec.width = bot.size;
-    bot.vel.x = 480.0f;
-    bot.vel.y = 480.0f;
-    bot.isCarrying = false;
+    Player bot = {
+        bot.size = 50,
+        bot.rec.x = screenWidth/2.0f,
+        bot.rec.y = screenHeight/2.0f,
+        bot.rec.height = bot.size,
+        bot.rec.width = bot.size,
+        bot.vel.x = 480.0f,
+        bot.vel.y = 480.0f,
+        bot.isCarrying = false
+    };
 
     Box box[10];
     
@@ -176,53 +210,28 @@ int main() {
         // === obsluga ekranów ===
         switch (currentScreen){
             case HOME:
-                if (CheckCollisionPointRec(GetMousePosition(), freeModeButton)){
-                    mouseOnFreeMode = true;
-                    buttonColor[0] = MENU_BUTTON_HOVER;
-                } 
-                else {
-                    mouseOnFreeMode = false;
-                    buttonColor[0] = DARKGREEN;
+                for (int i = 0; i < 4; i++){
+                    Button *button = &menuButtons[i];
+                    if (CheckCollisionPointRec(GetMousePosition(), button->rec)) {
+                        button->state = true;
+                        button->color = MENU_BUTTON_HOVER;
+                    } else {
+                        button->state = false;
+                        button->color = DARKGREEN;
+                    }
                 }
-
-                if (CheckCollisionPointRec(GetMousePosition(), timeModeButton)){
-                    mouseOnTimeMode = true;
-                    buttonColor[1] = MENU_BUTTON_HOVER;
-                } 
-                else {
-                    mouseOnTimeMode = false;
-                    buttonColor[1] = DARKGREEN;
-                }
-
-                if (CheckCollisionPointRec(GetMousePosition(), helpButton)){
-                    mouseOnHelp = true;
-                    buttonColor[2] = MENU_BUTTON_HOVER;
-                } 
-                else {
-                    mouseOnHelp = false;
-                    buttonColor[2] = DARKGREEN;
-                }
-
-                if (CheckCollisionPointRec(GetMousePosition(), resultsButton)){
-                    mouseOnResults = true;
-                    buttonColor[3] = MENU_BUTTON_HOVER;
-                } 
-                else {
-                    mouseOnResults = false;
-                    buttonColor[3] = DARKGREEN;
-                }
-
-                if (!gameStarted && !helpPopUp && mouseOnTimeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && strcmp(name, "") != 0) {
+                
+                if (!gameStarted && !helpPopUp && menuButtons[1].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && strcmp(name, "") != 0) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = GAMEPLAY;
-                } else if (!gameStarted && !helpPopUp && mouseOnFreeMode && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                } else if (!gameStarted && !helpPopUp && menuButtons[0].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     gameStarted = true;
                     firstSpawn = false;
                     currentScreen = FREEPLAY;
-                } else if (!gameStarted && mouseOnHelp && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                } else if (!gameStarted && menuButtons[2].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     helpPopUp = true;
-                } else if (!gameStarted && mouseOnResults && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
+                } else if (!gameStarted && menuButtons[3].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)){
                     currentScreen = RESULTS;
                 }
                 
@@ -446,7 +455,8 @@ int main() {
 
             switch (currentScreen){
                 case HOME:
-                    DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
+                    DrawMenuUI(screenWidth, screenHeight, menuButtons, textBox);
+                    // DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
                     if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 30, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
                     else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
                     if (helpPopUp) drawHelpPopUp(helpCloseButton);
@@ -467,8 +477,8 @@ int main() {
                     // === Rysowanie gracza ===
                     frameRec.x = (float)(currentFrame * frameRec.width);
                     frameRec.y = (float)(currentRow * frameRec.height);
-                    DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
-                    // DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
+                    // DrawRectangle(bot.rec.x, bot.rec.y, bot.size, bot.size, MAGENTA);
+                    DrawTextureRec(sprite, frameRec, (Vector2){bot.rec.x, bot.rec.y}, WHITE);
                     EndMode2D();
                     // === Wyswietlanie wyniku i czasu gry ===
                     if (points < maxPoints){
@@ -624,6 +634,21 @@ void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Recta
     DrawRectangleRec(helpButton, buttonColor[2]);
     DrawText("Help", screenWidth/2 - 170, screenHeight/2 + 170, 40, WHITE);
     DrawRectangleRec(resultsButton, buttonColor[3]);
+    DrawText("Results", screenWidth/2 + 55, screenHeight/2 + 170, 40, WHITE);
+    DrawRectangleRec(textBox, LIGHTGRAY);
+    DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
+}
+
+void DrawMenuUI(int screenWidth, int screenHeight, Button buttons[], Rectangle textBox) {
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
+    DrawText("RAYBOT", 165, screenHeight/2 - 200, 120, DARKGREEN);
+    DrawRectangleRec(buttons[0].rec, buttons[0].color);
+    DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
+    DrawRectangleRec(buttons[1].rec, buttons[1].color);
+    DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
+    DrawRectangleRec(buttons[2].rec, buttons[2].color);
+    DrawText("Help", screenWidth/2 - 170, screenHeight/2 + 170, 40, WHITE);
+    DrawRectangleRec(buttons[3].rec, buttons[3].color);
     DrawText("Results", screenWidth/2 + 55, screenHeight/2 + 170, 40, WHITE);
     DrawRectangleRec(textBox, LIGHTGRAY);
     DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
