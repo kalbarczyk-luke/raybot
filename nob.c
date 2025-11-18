@@ -21,7 +21,8 @@ int main(int argc, char **argv) {
                     "-I", ".\\lib",
                     "-I", RAYLIB_PATH, "-L", RAYLIB_PATH, "-l:libraylib.a", "-lgdi32", "-lwinmm"); 
     #else
-
+        nob_log(NOB_ERROR, "Compilation target not supported.");
+        return 1;
     #endif
     
     // nob_cmd_append(&cmd, "cc", "-o", BUILD_FOLDER"main", SRC_FOLDER"main.c");
