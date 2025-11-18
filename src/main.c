@@ -71,9 +71,8 @@ void ballin(Point *ball, int screenWidth, int screenHeight, float time);
 void initBoxes(Box *box, int iterator);
 void shuffleColors(Color *array, size_t n);
 void initTargets(Box *target, int iterator, Color *arr);
-void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]);
 void DrawMenuUI(int screenWidth, int screenHeight, Button buttons[], Rectangle textBox);
-void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset);
+void DrawResults(int screenWidth, int screenHeight, Button closeButton, Font font, int textOffset);
 void drawBackgroundElements(GameScreen gamemode);
 void drawReturnScreen(int screenWidth);
 void drawHelpPopUp(Button closeButton);
@@ -86,8 +85,9 @@ bool colorMatch(Color c1, Color c2);
 static float *global_scores;
 const char *result_path = "resources/results.dat"; 
 
-#define BRONZE (Color){205, 127, 50, 255}
+#define BRONZE            (Color){205, 127, 50, 255}
 #define MENU_BUTTON_HOVER (Color){0, 173, 66, 255}
+#define BACKGROUND_MAIN   (Color){76, 230, 142, 255}
 
 int main() {
     const int screenWidth = 800;
@@ -99,7 +99,6 @@ int main() {
     int points = 0, previousPoints = 0, frameCounter = 0, scrollPos = 1;
     float frameTimer = 0.0f, attemptTime = -1.0f;
     bool gameStarted = false, firstSpawn = false, helpPopUp = false;
-    bool mouseOnFreeMode = false, mouseOnTimeMode = false, mouseOnHelp = false, mouseOnResults = false;
     bool returnHomeRequested = false;
 
     char name[maxCharCount + 1];
@@ -107,6 +106,7 @@ int main() {
     name[0] = 0;
 
     Rectangle textBox = { screenWidth/2.0f - 200, 260, 400, 60 };
+    Rectangle resultsBox = { 50, 110, 340, 460};
 
     Button menuButtons[4] = {
         {
@@ -135,20 +135,17 @@ int main() {
         }
     };
     
-    Rectangle freeModeButton = { screenWidth/2 - 250, screenHeight/2 + 50, 240, 80 };
-    Rectangle timeModeButton = { screenWidth/2 + 10, screenHeight/2 + 50, 240, 80 };
-    Rectangle helpButton     = { screenWidth/2 - 250, screenHeight/2 + 150, 240, 80 };
-    Rectangle resultsButton  = { screenWidth/2 + 10, screenHeight/2 + 150, 240, 80 };
-    
     Button helpCloseButton = {
-        .rec = {700, 50, 50, 50},
+        .rec   = {700, 50, 50, 50},
         .color = MAROON,
         .state = false
     };
-
-    Rectangle resultsBox = { 50, 110, 340, 460};
-    // Rectangle helpCloseButton = {700, 50, 50, 50};
-    Color buttonColor[5] = {DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN, DARKGREEN};
+    
+    Button resultsCloseButton = {
+        .rec   = {10, 10, 50, 50},
+        .color = DARKGREEN,
+        .state = false
+    };
 
     srand(time(NULL));
 
@@ -305,9 +302,9 @@ int main() {
                 }
                 break;
             case RESULTS:
-                if (CheckCollisionPointRec(GetMousePosition(), (Rectangle){10, 10, 50, 50})) buttonColor[4] = (Color){0, 173, 66, 255};
-                else buttonColor[4] = DARKGREEN;
-                if (((CheckCollisionPointRec(GetMousePosition(), (Rectangle){10, 10, 50, 50}) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
+                if (CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec)) resultsCloseButton.color = MENU_BUTTON_HOVER;
+                else resultsCloseButton.color = DARKGREEN;
+                if (((CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
                     currentScreen = HOME;
                 }
                 if (CheckCollisionPointRec(GetMousePosition(), resultsBox)) {
@@ -456,7 +453,6 @@ int main() {
             switch (currentScreen){
                 case HOME:
                     DrawMenuUI(screenWidth, screenHeight, menuButtons, textBox);
-                    // DrawMenu(screenWidth, screenHeight, freeModeButton, timeModeButton, helpButton, resultsButton, textBox, buttonColor);
                     if (name[0] == 0) DrawText("Input your name!", (int)textBox.x + 30, (int)textBox.y + 12, 40, Fade(DARKGRAY, 0.4f)); 
                     else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
                     if (helpPopUp) drawHelpPopUp(helpCloseButton);
@@ -541,7 +537,7 @@ int main() {
                     DrawFPS(screenWidth - 30, 5);
                     break;
                 case RESULTS:
-                    DrawResults(screenWidth, screenHeight, buttonColor, resultFont, (scrollPos-1)/10);
+                    DrawResults(screenWidth, screenHeight, resultsCloseButton, resultFont, (scrollPos-1)/10);
                     // TODO: adaptive scroll 
                     DrawRectangle(screenWidth/2-40, 140 + scrollPos, 30, 30, LIGHTGRAY);
                     break;
@@ -624,23 +620,8 @@ void shuffleColors(Color *array, size_t n) {
     }
 }
 
-void DrawMenu(int screenWidth, int screenHeight, Rectangle freeModeButton, Rectangle timeModeButton, Rectangle helpButton, Rectangle resultsButton, Rectangle textBox, Color buttonColor[]){
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
-    DrawText("RAYBOT", 165, screenHeight/2 - 200, 120, DARKGREEN);
-    DrawRectangleRec(freeModeButton, buttonColor[0]);
-    DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
-    DrawRectangleRec(timeModeButton, buttonColor[1]);
-    DrawText("Time Play", screenWidth/2 + 35, screenHeight/2 + 70, 40, WHITE);
-    DrawRectangleRec(helpButton, buttonColor[2]);
-    DrawText("Help", screenWidth/2 - 170, screenHeight/2 + 170, 40, WHITE);
-    DrawRectangleRec(resultsButton, buttonColor[3]);
-    DrawText("Results", screenWidth/2 + 55, screenHeight/2 + 170, 40, WHITE);
-    DrawRectangleRec(textBox, LIGHTGRAY);
-    DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
-}
-
 void DrawMenuUI(int screenWidth, int screenHeight, Button buttons[], Rectangle textBox) {
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
+    DrawRectangle(0, 0, screenWidth, screenHeight, BACKGROUND_MAIN);
     DrawText("RAYBOT", 165, screenHeight/2 - 200, 120, DARKGREEN);
     DrawRectangleRec(buttons[0].rec, buttons[0].color);
     DrawText("Free Play", screenWidth/2 - 230, screenHeight/2 + 70, 40, WHITE);
@@ -654,9 +635,9 @@ void DrawMenuUI(int screenWidth, int screenHeight, Button buttons[], Rectangle t
     DrawRectangleLines((int)textBox.x, (int)textBox.y, (int)textBox.width, (int)textBox.height, DARKGRAY);
 }
 
-void DrawResults(int screenWidth, int screenHeight, Color buttonColor[], Font font, int textOffset) {
+void DrawResults(int screenWidth, int screenHeight, Button closeButton, Font font, int textOffset) {
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){76, 230, 142, 255});
-    DrawRectangle(10, 10, 50, 50, Fade(buttonColor[4], 0.9f));
+    DrawRectangleRec(closeButton.rec, Fade(closeButton.color, 0.9f));
     DrawRectangle(25, 37, 20, 13, Fade(WHITE, 0.9f));
     DrawTriangle((Vector2){50,35}, (Vector2){35,20}, (Vector2){20,35}, Fade(WHITE, 0.9f));
 
