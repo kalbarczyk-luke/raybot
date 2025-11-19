@@ -20,11 +20,11 @@
 ********************************************************************************************/
 #include "raylib.h"
 #include "raymath.h"
-#include "stdio.h"
-#include "math.h"
-#include "stdlib.h"
-#include "time.h"
-#include "string.h"
+#include <stdio.h>
+#include <math.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
 
 typedef enum {
     RED_COLOR,
@@ -35,7 +35,7 @@ typedef enum {
 
 typedef enum  { 
     HOME=0, 
-    GAMEPLAY,
+    TIMEPLAY,
     FREEPLAY, 
     RESULTS
 } GameScreen;
@@ -85,9 +85,10 @@ bool colorMatch(Color c1, Color c2);
 static float *global_scores;
 const char *result_path = "resources/results.dat"; 
 
-#define BRONZE            (Color){205, 127, 50, 255}
-#define MENU_BUTTON_HOVER (Color){0, 173, 66, 255}
-#define BACKGROUND_MAIN   (Color){76, 230, 142, 255}
+#define BRONZE             (Color){205, 127, 50, 255}
+#define MENU_BUTTON_HOVER  (Color){0, 173, 66, 255}
+#define BACKGROUND_MAIN    (Color){76, 230, 142, 255}
+#define CLOSE_BUTTON_HOVER (Color){ 210, 63, 85, 255 }
 
 int main() {
     const int screenWidth = 800;
@@ -96,8 +97,10 @@ int main() {
     const int maxPoints = 10;
     const int maxCharCount = 9;
     const size_t targetNumber = 4;
+
     int points = 0, previousPoints = 0, frameCounter = 0, scrollPos = 1;
     float frameTimer = 0.0f, attemptTime = -1.0f;
+
     bool gameStarted = false, firstSpawn = false, helpPopUp = false;
     bool returnHomeRequested = false;
 
@@ -150,11 +153,8 @@ int main() {
     srand(time(NULL));
 
     Box targets[targetNumber];
-    Color usedTargetsColors[targetNumber];
-    usedTargetsColors[0] = YELLOW;
-    usedTargetsColors[1] = RED;
-    usedTargetsColors[2] = GREEN;
-    usedTargetsColors[3] = BLUE;
+    Color usedTargetsColors[] = { YELLOW, RED, GREEN, BLUE };
+    
     for (int t = 0; t < targetNumber; t++){
         targets[t].rectangle.x = 700;    
         targets[t].rectangle.y = 50 + 150*t;    
@@ -184,8 +184,9 @@ int main() {
    
     InitWindow(screenWidth, screenHeight, "RAYBOT");
     InitAudioDevice();
-    GameScreen currentScreen = HOME;
     SetTargetFPS(60);
+
+    GameScreen currentScreen = HOME;
 
     Texture2D sprite = LoadTexture("resources/raybotYES.png");  
     Rectangle frameRec = { 0.0f, 0.0f, (float)sprite.width/2, (float)sprite.height/5 };
@@ -221,7 +222,7 @@ int main() {
                 if (!gameStarted && !helpPopUp && menuButtons[1].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && strcmp(name, "") != 0) {
                     gameStarted = true;
                     firstSpawn = false;
-                    currentScreen = GAMEPLAY;
+                    currentScreen = TIMEPLAY;
                 } else if (!gameStarted && !helpPopUp && menuButtons[0].state && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
                     gameStarted = true;
                     firstSpawn = false;
@@ -254,7 +255,7 @@ int main() {
                 }
                 
                 if (helpPopUp && CheckCollisionPointRec(GetMousePosition(), helpCloseButton.rec)) { 
-                    helpCloseButton.color = (Color){ 210, 63, 85, 255 };
+                    helpCloseButton.color = CLOSE_BUTTON_HOVER;
                     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) || IsKeyPressed(KEY_Q)) {
                         helpPopUp = false;
                     }
@@ -262,7 +263,7 @@ int main() {
                     helpCloseButton.color = MAROON;
                 }
                 break;
-            case GAMEPLAY:
+            case TIMEPLAY:
                 if (IsKeyPressed(KEY_Q)) returnHomeRequested = true;
 
                 if (returnHomeRequested) {
@@ -302,9 +303,13 @@ int main() {
                 }
                 break;
             case RESULTS:
-                if (CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec)) resultsCloseButton.color = MENU_BUTTON_HOVER;
-                else resultsCloseButton.color = DARKGREEN;
-                if (((CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))){
+                if (CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec)) {
+                    resultsCloseButton.color = MENU_BUTTON_HOVER;
+                } else {
+                    resultsCloseButton.color = DARKGREEN;
+                }
+                if (((CheckCollisionPointRec(GetMousePosition(), resultsCloseButton.rec) 
+                    && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) || IsKeyPressed(KEY_Q))) {
                     currentScreen = HOME;
                 }
                 if (CheckCollisionPointRec(GetMousePosition(), resultsBox)) {
@@ -400,7 +405,7 @@ int main() {
                     }
                 }
             }
-            else if (currentScreen == GAMEPLAY){
+            else if (currentScreen == TIMEPLAY){
                 if ((points != 0 && points % 10 == 0 && points != previousPoints && points < maxPoints) || (attemptTime != -1.0f && IsKeyPressed(KEY_R))) {
                     previousPoints = points;
                     for (int i = 0; i < boxNumber; i++) {
@@ -457,7 +462,7 @@ int main() {
                     else DrawText(name, (int)textBox.x + 5, (int)textBox.y + 12, 40, DARKGREEN);
                     if (helpPopUp) drawHelpPopUp(helpCloseButton);
                     break;
-                case GAMEPLAY:
+                case TIMEPLAY:
                     BeginMode2D(camera);
                     drawBackgroundElements(currentScreen);
                     DrawText(name, 160, 560, 32, WHITE);
@@ -544,7 +549,7 @@ int main() {
                 default: break;
             }
 
-        EndDrawing();   
+        EndDrawing();
     }
     UnloadTexture(sprite);
     UnloadSound(popSound);
@@ -757,7 +762,7 @@ void drawBackgroundElements(GameScreen gamemode) {
     DrawText("Player: ", 40, 560, 32,WHITE);
     if (gamemode == FREEPLAY){
         DrawRectangle(30, 30, 220, 50, Fade(DARKGRAY, 0.7f));
-    } else if (gamemode == GAMEPLAY){
+    } else if (gamemode == TIMEPLAY){
         DrawRectangle(30, 30, 350, 50, Fade(DARKGRAY, 0.7f));
     }
 }
